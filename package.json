@@ -8,7 +8,8 @@
     "test__": "babel-node ./node_modules/.bin/isparta cover _mocha -- 'test/**/*.spec.js' ",
     "test": "mocha 'test/**/*.spec.js' --recursive --compilers js:babel-register",
     "prepublish_": "babel src --out-file ${npm_package_name}-${npm_package_version}.js --source-maps",
-    "prepublish": "browserify -r ${npm_package_main}:main-action --node > ${npm_package_name}-${npm_package_version}.js && npm run whisk_wrapper",
+    "prepublish": "browserify -r ${npm_package_main}:main-action --node > ${npm_package_name}-${npm_package_version}.js && npm run remove_pkginfo && npm run whisk_wrapper",
+    "remove_pkginfo": "replace '^require.*pkginfo' '// removed pkginfo ...' -r ${npm_package_name}-${npm_package_version}.js",
     "whisk_wrapper": "echo \"var main = require('main-action').default;\" >> ${npm_package_name}-${npm_package_version}.js"
   },
   "repository": {
@@ -21,7 +22,8 @@
     "passport": "^0.3.2",
     "passport-facebook": "^2.1.1",
     "passport-github": "^1.1.0",
-    "passport-google": "^0.3.0"
+    "passport-google": "^0.3.0",
+    "passport-twitter": "^1.0.4"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",
@@ -45,6 +47,7 @@
     "mocha": "^2.5.3",
     "nock": "^9.0.2",
     "openwhisk": "^2.3.0",
+    "replace": "^0.3.0",
     "request": "^2.79.0",
     "resource-router-middleware": "^0.6.0",
     "supertest": "^1.1.0",
