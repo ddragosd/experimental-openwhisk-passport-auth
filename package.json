@@ -5,8 +5,8 @@
   "main": "./src/action/auth.js",
   "scripts": {
     "start": "babel-watch ./test/server/index.js",
-    "test__": "babel-node ./node_modules/.bin/isparta cover _mocha -- 'test/**/*.spec.js' ",
-    "test": "mocha 'test/**/*.spec.js' --recursive --compilers js:babel-register",
+    "test": "babel-node ./node_modules/.bin/isparta cover _mocha -- 'test/**/*.spec.js' ",
+    "test_nocov": "mocha 'test/**/*.spec.js' --recursive --compilers js:babel-register",
     "prepublish_": "babel src --out-file ${npm_package_name}-${npm_package_version}.js --source-maps",
     "prepublish": "browserify -r ${npm_package_main}:main-action --node > ${npm_package_name}-${npm_package_version}.js && npm run remove_pkginfo && npm run whisk_wrapper",
     "remove_pkginfo": "replace '^require.*pkginfo' '// removed pkginfo ...' -r ${npm_package_name}-${npm_package_version}.js",
@@ -23,6 +23,7 @@
     "passport-facebook": "^2.1.1",
     "passport-github": "^1.1.0",
     "passport-google": "^0.3.0",
+    "passport-google-oauth20": "^1.0.0",
     "passport-twitter": "^1.0.4"
   },
   "devDependencies": {

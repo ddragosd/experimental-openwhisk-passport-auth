@@ -1156,1944 +1156,6 @@ exports.HMACSHA1= function(key, data) {
   return b64_hmac_sha1(key, data);
 }
 },{}],6:[function(require,module,exports){
-/* Base64 conversion functions
- *
- * Adaptions for node.js are Copyright (c) 2010 Håvard Stranden
- *
- * Copyright (c) 2010 Nick Galbreath
- * http://code.google.com/p/stringencoders/source/browse/#svn/trunk/javascript
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following
- * conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
- * base64 encode/decode compatible with window.btoa/atob
- *
- * window.atob/btoa is a Firefox extension to convert binary data (the "b")
- * to base64 (ascii, the "a").
- *
- * It is also found in Safari and Chrome.  It is not available in IE.
- *
- * if (!window.btoa) window.btoa = base64.encode
- * if (!window.atob) window.atob = base64.decode
- *
- * The original spec's for atob/btoa are a bit lacking
- * https://developer.mozilla.org/en/DOM/window.atob
- * https://developer.mozilla.org/en/DOM/window.btoa
- *
- * window.btoa and base64.encode takes a string where charCodeAt is [0,255]
- * If any character is not [0,255], then an exception is thrown.
- *
- * window.atob and base64.decode take a base64-encoded string
- * If the input length is not a multiple of 4, or contains invalid characters
- *   then an exception is thrown.
- *
- * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
- * vim: set sw=2 ts=2 et tw=80 : 
- */
-var base64 = {};
-base64.PADCHAR = '=';
-base64.ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-base64.getbyte64 = function(s,i) {
-    // This is oddly fast, except on Chrome/V8.
-    //  Minimal or no improvement in performance by using a
-    //   object with properties mapping chars to value (eg. 'A': 0)
-    var idx = base64.ALPHA.indexOf(s.charAt(i));
-    if (idx == -1) {
-  throw "Cannot decode base64";
-    }
-    return idx;
-}
-
-base64.decode = function(s) {
-    // convert to string
-    s = "" + s;
-    var getbyte64 = base64.getbyte64;
-    var pads, i, b10;
-    var imax = s.length
-    if (imax == 0) {
-        return s;
-    }
-
-    if (imax % 4 != 0) {
-  throw "Cannot decode base64";
-    }
-
-    pads = 0
-    if (s.charAt(imax -1) == base64.PADCHAR) {
-        pads = 1;
-        if (s.charAt(imax -2) == base64.PADCHAR) {
-            pads = 2;
-        }
-        // either way, we want to ignore this last block
-        imax -= 4;
-    }
-
-    var x = [];
-    for (i = 0; i < imax; i += 4) {
-        b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) |
-            (getbyte64(s,i+2) << 6) | getbyte64(s,i+3);
-        x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
-    }
-
-    switch (pads) {
-    case 1:
-        b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12) | (getbyte64(s,i+2) << 6)
-        x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
-        break;
-    case 2:
-        b10 = (getbyte64(s,i) << 18) | (getbyte64(s,i+1) << 12);
-        x.push(String.fromCharCode(b10 >> 16));
-        break;
-    }
-    return x.join('');
-}
-
-base64.getbyte = function(s,i) {
-    var x = s.charCodeAt(i);
-    if (x > 255) {
-        throw "INVALID_CHARACTER_ERR: DOM Exception 5";
-    }
-    return x;
-}
-
-
-base64.encode = function(s) {
-    if (arguments.length != 1) {
-  throw "SyntaxError: Not enough arguments";
-    }
-    var padchar = base64.PADCHAR;
-    var alpha   = base64.ALPHA;
-    var getbyte = base64.getbyte;
-
-    var i, b10;
-    var x = [];
-
-    // convert to string
-    s = "" + s;
-
-    var imax = s.length - s.length % 3;
-
-    if (s.length == 0) {
-        return s;
-    }
-    for (i = 0; i < imax; i += 3) {
-        b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8) | getbyte(s,i+2);
-        x.push(alpha.charAt(b10 >> 18));
-        x.push(alpha.charAt((b10 >> 12) & 0x3F));
-        x.push(alpha.charAt((b10 >> 6) & 0x3f));
-        x.push(alpha.charAt(b10 & 0x3f));
-    }
-    switch (s.length - imax) {
-    case 1:
-        b10 = getbyte(s,i) << 16;
-        x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-               padchar + padchar);
-        break;
-    case 2:
-        b10 = (getbyte(s,i) << 16) | (getbyte(s,i+1) << 8);
-        x.push(alpha.charAt(b10 >> 18) + alpha.charAt((b10 >> 12) & 0x3F) +
-               alpha.charAt((b10 >> 6) & 0x3f) + padchar);
-        break;
-    }
-    return x.join('');
-}
-
-exports.base64 = base64;
-
-},{}],7:[function(require,module,exports){
-/* Conversion functions used in OpenID for node.js
- *
- * http://ox.no/software/node-openid
- * http://github.com/havard/node-openid
- *
- * Copyright (C) 2010 by Håvard Stranden
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- *  
- * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
- * vim: set sw=2 ts=2 et tw=80 : 
- */
-
-var base64 = require('./base64').base64;
-
-function btwoc(i)
-{
-  if(i.charCodeAt(0) > 127)
-  {
-    return String.fromCharCode(0) + i;
-  }
-  return i;
-}
-
-function unbtwoc(i)
-{
-  if(i[0] === String.fromCharCode(0))
-  {
-    return i.substr(1);
-  }
-
-  return i;
-}
-
-exports.btwoc = btwoc;
-exports.unbtwoc = unbtwoc;
-exports.base64 = base64;
-
-},{"./base64":6}],8:[function(require,module,exports){
-/* A simple XRDS and Yadis parser written for OpenID for node.js
- *
- * http://ox.no/software/node-openid
- * http://github.com/havard/node-openid
- *
- * Copyright (C) 2010 by Håvard Stranden
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- *  
- * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
- * vim: set sw=2 ts=2 et tw=80 : 
- */
-
-exports.parse  = function(data)
-{
-  data = data.replace(/\r|\n/g, '');
-  var services = [];
-  var serviceMatches = data.match(/<Service\s*(priority="\d+")?.*?>(.*?)<\/Service>/g);
-
-  if(!serviceMatches)
-  {
-    return services;
-  }
-
-  for(var s = 0, len = serviceMatches.length; s < len; ++s)
-  {
-    var service = serviceMatches[s];
-    var svcs = [];
-    var priorityMatch = /<Service.*?priority="(.*?)".*?>/g.exec(service);
-    var priority = 0;
-    if(priorityMatch)
-    {
-      priority = parseInt(priorityMatch[1], 10);
-    }
-
-    var typeMatch = null;
-    var typeRegex = new RegExp('<Type(\\s+.*?)?>(.*?)<\\/Type\\s*?>', 'g');
-    while(typeMatch = typeRegex.exec(service))
-    {
-      svcs.push({ priority: priority, type: typeMatch[2] });
-    }
-
-    if(svcs.length == 0)
-    {
-      continue;
-    }
-
-    var idMatch = /<(Local|Canonical)ID\s*?>(.*?)<\/\1ID\s*?>/g.exec(service);
-    if(idMatch)
-    {
-      for(var i = 0; i < svcs.length; i++)
-      {
-        var svc = svcs[i];
-        svc.id = idMatch[2];
-      }
-    }
-    
-    var uriMatch = /<URI(\s+.*?)?>(.*?)<\/URI\s*?>/g.exec(service);
-    if(!uriMatch)
-    {
-      continue;
-    }
-
-    for(var i = 0; i < svcs.length; i++)
-    {
-      var svc = svcs[i];
-      svc.uri = uriMatch[2];
-    }
-
-    var delegateMatch = /<(.*?Delegate)\s*?>(.*)<\/\1\s*?>/g.exec(service);
-    if(delegateMatch)
-    {
-      svc.delegate = delegateMatch[2];
-    }
-
-    services.push.apply(services, svcs);
-  }
-
-  services.sort(function(a, b) 
-  { 
-    return a.priority < b.priority 
-      ? -1 
-      : (a.priority == b.priority ? 0 : 1);
-  });
-
-  return services;
-}
-
-},{}],9:[function(require,module,exports){
-/* OpenID for node.js
- *
- * http://ox.no/software/node-openid
- * http://github.com/havard/node-openid
- *
- * Copyright (C) 2010 by Håvard Stranden
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- *
- * -*- Mode: JS; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- 
- * vim: set sw=2 ts=2 et tw=80 : 
- */
-
-var convert = require('./lib/convert'),
-    crypto = require('crypto'),
-    http = require('http'),
-    https = require('https'),
-    querystring = require('querystring'),
-    url = require('url'),
-    xrds = require('./lib/xrds');
-
-var _associations = {};
-var _discoveries = {};
-
-var openid = exports;
-
-openid.RelyingParty = function(returnUrl, realm, stateless, strict, extensions)
-{
-  this.returnUrl = returnUrl;
-  this.realm = realm || null;
-  this.stateless = stateless;
-  this.strict = strict;
-  this.extensions = extensions;
-}
-
-openid.RelyingParty.prototype.authenticate = function(identifier, immediate, callback)
-{
-  openid.authenticate(identifier, this.returnUrl, this.realm, 
-      immediate, this.stateless, callback, this.extensions, this.strict);
-}
-
-openid.RelyingParty.prototype.verifyAssertion = function(requestOrUrl, callback)
-{
-  openid.verifyAssertion(requestOrUrl, callback, this.stateless, this.extensions, this.strict);
-}
-
-var _isDef = function(e)
-{
-  var undefined;
-  return e !== undefined;
-}
-
-var _toBase64 = function(binary)
-{
-  return convert.base64.encode(convert.btwoc(binary));
-}
-
-var _fromBase64 = function(str)
-{
-  return convert.unbtwoc(convert.base64.decode(str));
-}
-
-var _xor = function(a, b)
-{
-  if(a.length != b.length)
-  {
-    throw new Error('Length must match for xor');
-  }
-
-  var r = '';
-  for(var i = 0; i < a.length; ++i)
-  {
-    r += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i));
-  }
-
-  return r;
-}
-
-openid.saveAssociation = function(provider, type, handle, secret, expiry_time_in_seconds, callback)
-{
-  setTimeout(function() {
-    openid.removeAssociation(handle);
-  }, expiry_time_in_seconds * 1000);
-  _associations[handle] = {provider: provider, type : type, secret: secret};
-  callback(null); // Custom implementations may report error as first argument
-}
-
-openid.loadAssociation = function(handle, callback)
-{
-  if(_isDef(_associations[handle]))
-  {
-    callback(null, _associations[handle]);
-  }
-  else
-  {
-    callback(null, null);
-  }
-}
-
-openid.removeAssociation = function(handle)
-{
-  delete _associations[handle];
-  return true;
-}
-
-openid.saveDiscoveredInformation = function(key, provider, callback)
-{
-  _discoveries[key] = provider;
-  return callback(null);
-}
-
-openid.loadDiscoveredInformation = function(key, callback)
-{
-  if(!_isDef(_discoveries[key]))
-  {
-    return callback(null, null);
-  }
-
-  return callback(null, _discoveries[key]);
-}
-
-var _buildUrl = function(theUrl, params)
-{
-  theUrl = url.parse(theUrl, true);
-  delete theUrl['search'];
-  if(params)
-  {
-    if(!theUrl.query)
-    {
-      theUrl.query = params;
-    }
-    else
-    {
-      for(var key in params)
-      {
-        if(params.hasOwnProperty(key))
-        {
-          theUrl.query[key] = params[key];
-        }
-      }
-    }
-  }
-
-  return url.format(theUrl);
-}
-
-var _proxyRequest = function(protocol, options)
-{
-  /* 
-  If process.env['HTTP_PROXY_HOST'] and the env variable `HTTP_PROXY_POST`
-  are set, make sure path and the header Host are set to target url.
-
-  Similarly, `HTTPS_PROXY_HOST` and `HTTPS_PROXY_PORT` can be used
-  to proxy HTTPS traffic.
-
-  Proxies Example:
-      export HTTP_PROXY_HOST=localhost
-      export HTTP_PROXY_PORT=8080
-      export HTTPS_PROXY_HOST=localhost
-      export HTTPS_PROXY_PORT=8442
-
-  Function returns protocol which should be used for network request, one of
-  http: or https:
-  */
-  var targetHost = options.host;
-  var newProtocol = protocol;
-  if (!targetHost) return;
-  var updateOptions = function (envPrefix) {
-    var proxyHostname = process.env[envPrefix + '_PROXY_HOST'].trim();
-    var proxyPort = parseInt(process.env[envPrefix + '_PROXY_PORT'], 10);
-    if (proxyHostname.length > 0 && ! isNaN(proxyPort)) {
-
-      if (! options.headers) options.headers = {};
-
-      var targetHostAndPort = targetHost + ':' + options.port;
-
-      options.host = proxyHostname;
-      options.port = proxyPort;
-      options.path = protocol + '//' + targetHostAndPort + options.path;
-      options.headers['Host'] = targetHostAndPort;
-    }
-  };
-  if ('https:' === protocol &&
-      !! process.env['HTTPS_PROXY_HOST'] &&
-      !! process.env['HTTPS_PROXY_PORT']) {
-    updateOptions('HTTPS');
-    // Proxy server request must be done via http... it is responsible for
-    // Making the https request...    
-    newProtocol = 'http:';
-  } else if (!! process.env['HTTP_PROXY_HOST'] &&
-             !! process.env['HTTP_PROXY_PORT']) {
-    updateOptions('HTTP');
-  }
-  return newProtocol;
-}
-
-var _get = function(getUrl, params, callback, redirects)
-{
-  redirects = redirects || 5;
-  getUrl = url.parse(_buildUrl(getUrl, params));
-
-  var path = getUrl.pathname || '/';
-  if(getUrl.query)
-  {
-    path += '?' + getUrl.query;
-  }
-  var options = 
-  {
-    host: getUrl.hostname,
-    port: _isDef(getUrl.port) ? parseInt(getUrl.port, 10) :
-      (getUrl.protocol == 'https:' ? 443 : 80),
-    headers: { 'Accept' : 'application/xrds+xml,text/html,text/plain,*/*' },
-    path: path
-  };
-
-  var protocol = _proxyRequest(getUrl.protocol, options);
-
-  (protocol == 'https:' ? https : http).get(options, function(res)
-  {
-    var data = '';
-    res.on('data', function(chunk)
-    {
-      data += chunk;
-    });
-
-    var isDone = false;
-    var done = function()
-    {
-      if (isDone) return;
-      isDone = true;
-
-      if(res.headers.location && --redirects)
-      {
-        var redirectUrl = res.headers.location;
-        if(redirectUrl.indexOf('http') !== 0)
-        {
-          redirectUrl = getUrl.protocol + '//' + getUrl.hostname + ':' + options.port + (redirectUrl.indexOf('/') === 0 ? redirectUrl : '/' + redirectUrl);
-        }
-        _get(redirectUrl, params, callback, redirects);
-      }
-      else
-      {
-        callback(data, res.headers, res.statusCode);
-      }
-    }
-
-    res.on('end', function() { done(); });
-    res.on('close', function() { done(); });
-  }).on('error', function(error) 
-  {
-    return callback(error);
-  });
-}
-
-var _post = function(postUrl, data, callback, redirects)
-{
-  redirects = redirects || 5;
-  postUrl = url.parse(postUrl);
-
-  var path = postUrl.pathname || '/';
-  if(postUrl.query)
-  {
-    path += '?' + postUrl.query;
-  }
-
-  var encodedData = _encodePostData(data);
-  var options = 
-  {
-    host: postUrl.hostname,
-    path: path,
-    port: _isDef(postUrl.port) ? postUrl.port :
-      (postUrl.protocol == 'https:' ? 443 : 80),
-    headers: 
-    {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': encodedData.length
-    },
-    method: 'POST'
-  };
-
-  var protocol = _proxyRequest(postUrl.protocol, options);
-
-  (protocol == 'https:' ? https : http).request(options, function(res)
-  {
-    var data = '';
-    res.on('data', function(chunk)
-    {
-      data += chunk;
-    });
-
-    var isDone = false;
-    var done = function()
-    {
-      if (isDone) return;
-      isDone = true;
-
-      if(res.headers.location && --redirects)
-      {
-        _post(res.headers.location, data, callback, redirects);
-      }
-      else
-      {
-        callback(data, res.headers, res.statusCode);
-      }
-    }
-
-    res.on('end', function() { done(); });
-    res.on('close', function() { done(); });
-  }).on('error', function(error)
-  {
-    return callback(error);
-  }).end(encodedData);
-}
-
-var _encodePostData = function(data)
-{
-  var encoded = querystring.stringify(data);
-  return encoded;
-}
-
-var _decodePostData = function(data)
-{
-  var lines = data.split('\n');
-  var result = {};
-  for (var i = 0; i < lines.length ; i++) {
-    var line = lines[i];
-    if (line.length > 0 && line[line.length - 1] == '\r') {
-      line = line.substring(0, line.length - 1);
-    }
-    var colon = line.indexOf(':');
-    if (colon === -1)
-    {
-      continue;
-    }
-    var key = line.substr(0, line.indexOf(':'));
-    var value = line.substr(line.indexOf(':') + 1);
-    result[key] = value;
-  }
-
-  return result;
-}
-
-var _normalizeIdentifier = function(identifier)
-{
-  identifier = identifier.replace(/^\s+|\s+$/g, '');
-  if(!identifier)
-    return null;
-  if(identifier.indexOf('xri://') === 0)
-  {
-    identifier = identifier.substring(6);
-  }
-
-  if(/^[(=@\+\$!]/.test(identifier))
-  {
-    return identifier;
-  }
-
-  if(identifier.indexOf('http') === 0)
-  {
-    return identifier;
-  }
-  return 'http://' + identifier;
-}
-
-var _parseXrds = function(xrdsUrl, xrdsData)
-{
-  var services = xrds.parse(xrdsData);
-  if(services == null)
-  {
-    return null;
-  }
-
-  var providers = [];
-  for(var i = 0, len = services.length; i < len; ++i)
-  {
-    var service = services[i];
-    var provider = {};
-
-    provider.endpoint = service.uri;
-    if(/https?:\/\/xri./.test(xrdsUrl))
-    {
-      provider.claimedIdentifier = service.id;
-    }
-    if(service.type == 'http://specs.openid.net/auth/2.0/signon')
-    {
-      provider.version = 'http://specs.openid.net/auth/2.0';
-      provider.localIdentifier = service.id;
-    }
-    else if(service.type == 'http://specs.openid.net/auth/2.0/server')
-    {
-      provider.version = 'http://specs.openid.net/auth/2.0';
-    }
-    else if(service.type == 'http://openid.net/signon/1.0' || 
-      service.type == 'http://openid.net/signon/1.1')
-    {
-      provider.version = service.type;
-      provider.localIdentifier = service.delegate;
-    }
-    else
-    {
-      continue;
-    }
-    providers.push(provider);
-  }
-
-  return providers;
-}
-
-var _matchMetaTag = function(html)
-{
-  var metaTagMatches = /<meta\s+.*?http-equiv="x-xrds-location"\s+(.*?)>/ig.exec(html);
-  if(!metaTagMatches || metaTagMatches.length < 2)
-  {
-    return null;
-  }
-
-  var contentMatches = /content="(.*?)"/ig.exec(metaTagMatches[1]);
-  if(!contentMatches || contentMatches.length < 2)
-  {
-    return null;
-  }
-
-  return contentMatches[1];
-}
-
-var _matchLinkTag = function(html, rel)
-{
-  var providerLinkMatches = new RegExp('<link\\s+.*?rel=["\'][^"\']*?' + rel + '[^"\']*?["\'].*?>', 'ig').exec(html);
-
-  if(!providerLinkMatches || providerLinkMatches.length < 1)
-  {
-    return null;
-  }
-
-  var href = /href=["'](.*?)["']/ig.exec(providerLinkMatches[0]);
-
-  if(!href || href.length < 2)
-  {
-    return null;
-  }
-  return href[1];
-}
-
-var _parseHtml = function(htmlUrl, html, callback, hops)
-{
-  var metaUrl = _matchMetaTag(html);
-  if(metaUrl != null)
-  {
-    return _resolveXri(metaUrl, callback, hops + 1);
-  }
-
-  var provider = _matchLinkTag(html, 'openid2.provider');
-  if(provider == null)
-  {
-    provider = _matchLinkTag(html, 'openid.server');
-    if(provider == null)
-    {
-      callback(null);
-    }
-    else
-    {
-      var localId = _matchLinkTag(html, 'openid.delegate');
-      callback([{ 
-        version: 'http://openid.net/signon/1.1',
-        endpoint: provider, 
-        claimedIdentifier: htmlUrl,
-        localIdentifier : localId 
-      }]);
-    }
-  }
-  else
-  {
-    var localId = _matchLinkTag(html, 'openid2.local_id');
-    callback([{ 
-      version: 'http://specs.openid.net/auth/2.0/signon', 
-      endpoint: provider, 
-      claimedIdentifier: htmlUrl,
-      localIdentifier : localId 
-    }]);
-  }
-}
-
-var _parseHostMeta = function(hostMeta, callback)
-{
-  var match = /^Link: <([^\n\r]+)>;/.exec(hostMeta);
-  if(match != null)
-  {
-    var xriUrl = match[0].slice(7,match.length - 4);
-    _resolveXri(xriUrl, callback);
-  }
-  else
-  {
-    callback(null)
-  }
-}
-
-var _resolveXri = function(xriUrl, callback, hops)
-{
-  if(!hops)
-  {
-    hops = 1;
-  }
-  else if(hops >= 5)
-  {
-    return callback(null);
-  }
-
-  _get(xriUrl, null, function(data, headers, statusCode)
-  {
-    if(statusCode != 200)
-    {
-      return callback(null);
-    }
-
-    var xrdsLocation = headers['x-xrds-location'];
-    if(_isDef(xrdsLocation))
-    {
-      _get(xrdsLocation, null, function(data, headers, statusCode)
-      {
-        if(statusCode != 200 || data == null)
-        {
-          callback(null);
-        }
-        else
-        {
-          callback(_parseXrds(xrdsLocation, data));
-        }
-      });
-    }
-    else if(data != null)
-    {
-      var contentType = headers['content-type'];
-      // text/xml is not compliant, but some hosting providers refuse header
-      // changes, so text/xml is encountered
-      if(contentType && (contentType.indexOf('application/xrds+xml') === 0 || contentType.indexOf('text/xml') === 0))
-      {
-        return callback(_parseXrds(xriUrl, data));
-      }
-      else
-      {
-        return _resolveHtml(xriUrl, callback, hops + 1, data);
-      }
-    }
-  });
-}
-
-var _resolveHtml = function(identifier, callback, hops, data)
-{
-  if(!hops)
-  {
-    hops = 1;
-  }
-  else if(hops >= 5)
-  {
-    return callback(null);
-  }
-
-  if(data == null)
-  {
-    _get(identifier, null, function(data, headers, statusCode)
-    {
-      if(statusCode != 200 || data == null)
-      {
-        callback(null);
-      }
-      else
-      {
-        _parseHtml(identifier, data, callback, hops + 1);
-      }
-    });
-  }
-  else
-  {
-    _parseHtml(identifier, data, callback, hops);
-  }
-
-}
-
-var _resolveHostMeta = function(identifier, strict, callback, fallBackToProxy)
-{
-  var host = url.parse(identifier);
-  var hostMetaUrl;
-  if(fallBackToProxy && !strict)
-  {
-    hostMetaUrl = 'https://www.google.com/accounts/o8/.well-known/host-meta?hd=' + host.host
-  }
-  else
-  {
-    hostMetaUrl = host.protocol + '//' + host.host + '/.well-known/host-meta';
-  }
-  if(!hostMetaUrl)
-  {
-    callback(null);
-  }
-  else
-  {
-    _get(hostMetaUrl, null, function(data, headers, statusCode)
-    {
-      if(statusCode != 200 || data == null)
-      {
-        if(!fallBackToProxy && !strict){
-          _resolveHostMeta(identifier, strict, callback, true);
-        }
-        else{
-          callback(null);
-        }
-      }
-      else
-      {
-        //Attempt to parse the data but if this fails it may be because
-        //the response to hostMetaUrl was some other http/html resource.
-        //Therefore fallback to the proxy if no providers are found.
-        _parseHostMeta(data, function(providers){
-          if((providers == null || providers.length == 0) && !fallBackToProxy && !strict){
-            _resolveHostMeta(identifier, strict, callback, true);
-          }
-          else{
-            callback(providers);
-          }
-        });
-      }
-    });
-  }
-}
-
-openid.discover = function(identifier, strict, callback)
-{
-  identifier = _normalizeIdentifier(identifier);
-  if(!identifier) 
-  {
-    return callback({ message: 'Invalid identifier' }, null);
-  }
-  if(identifier.indexOf('http') !== 0)
-  {
-    // XRDS
-    identifier = 'https://xri.net/' + identifier + '?_xrd_r=application/xrds%2Bxml';
-  }
-
-  // Try XRDS/Yadis discovery
-  _resolveXri(identifier, function(providers)
-  {
-    if(providers == null || providers.length == 0)
-    {
-      // Fallback to HTML discovery
-      _resolveHtml(identifier, function(providers)
-      {
-        if(providers == null || providers.length == 0){
-          _resolveHostMeta(identifier, strict, function(providers){
-            callback(null, providers);
-          });
-        }
-        else{
-          callback(null, providers);
-        }
-      });
-    }
-    else
-    {
-      // Add claimed identifier to providers with local identifiers
-      // and OpenID 1.0/1.1 providers to ensure correct resolution 
-      // of identities and services
-      for(var i = 0, len = providers.length; i < len; ++i)
-      {
-        var provider = providers[i];
-        if(!provider.claimedIdentifier && 
-          (provider.localIdentifier || provider.version.indexOf('2.0') === -1))
-        {
-          provider.claimedIdentifier = identifier;
-        }
-      }
-      callback(null, providers);
-    }
-  });
-}
-
-var _createDiffieHellmanKeyExchange = function(algorithm)
-{
-  var defaultPrime = 'ANz5OguIOXLsDhmYmsWizjEOHTdxfo2Vcbt2I3MYZuYe91ouJ4mLBX+YkcLiemOcPym2CBRYHNOyyjmG0mg3BVd9RcLn5S3IHHoXGHblzqdLFEi/368Ygo79JRnxTkXjgmY0rxlJ5bU1zIKaSDuKdiI+XUkKJX8Fvf8W8vsixYOr';
-
-  var dh = crypto.createDiffieHellman(defaultPrime, 'base64');
-
-  dh.generateKeys();
-
-  return dh;
-}
-
-openid.associate = function(provider, callback, strict, algorithm)
-{
-  var params = _generateAssociationRequestParameters(provider.version, algorithm);
-  if(!_isDef(algorithm))
-  {
-    algorithm = 'DH-SHA256';
-  }
-
-  var dh = null;
-  if(algorithm.indexOf('no-encryption') === -1)
-  {
-    dh = _createDiffieHellmanKeyExchange(algorithm);
-    params['openid.dh_modulus'] = _toBase64(dh.getPrime('binary'));
-    params['openid.dh_gen'] = _toBase64(dh.getGenerator('binary'));
-    params['openid.dh_consumer_public'] = _toBase64(dh.getPublicKey('binary'));
-  }
-
-  _post(provider.endpoint, params, function(data, headers, statusCode)
-  {
-    if ((statusCode != 200 && statusCode != 400) || data === null)
-    {
-      return callback({ 
-        message: 'HTTP request failed' 
-      }, { 
-        error: 'HTTP request failed', 
-        error_code: ''  + statusCode, 
-        ns: 'http://specs.openid.net/auth/2.0' 
-      });
-    }
-    
-    data = _decodePostData(data);
-
-    if(data.error_code == 'unsupported-type' || !_isDef(data.ns))
-    {
-      if(algorithm == 'DH-SHA1')
-      {
-        if(strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0)
-        {
-          return callback({ message: 'Channel is insecure and no encryption method is supported by provider' }, null);
-        }
-        else
-        {
-          return openid.associate(provider, callback, strict, 'no-encryption-256');
-        }
-      }
-      else if(algorithm == 'no-encryption-256')
-      {
-        if(strict && provider.endpoint.toLowerCase().indexOf('https:') !== 0)
-        {
-          return callback('Channel is insecure and no encryption method is supported by provider', null);
-        }
-        /*else if(provider.version.indexOf('2.0') === -1)
-        {
-          // 2011-07-22: This is an OpenID 1.0/1.1 provider which means
-          // HMAC-SHA1 has already been attempted with a blank session
-          // type as per the OpenID 1.0/1.1 specification.
-          // (See http://openid.net/specs/openid-authentication-1_1.html#mode_associate)
-          // However, providers like wordpress.com don't follow the 
-          // standard and reject these requests, but accept OpenID 2.0
-          // style requests without a session type, so we have to give
-          // those a shot as well.
-          callback({ message: 'Provider is OpenID 1.0/1.1 and does not support OpenID 1.0/1.1 association.' });
-        }*/
-        else
-        {
-          return openid.associate(provider, callback, strict, 'no-encryption');
-        }
-      }
-      else if(algorithm == 'DH-SHA256')
-      {
-        return openid.associate(provider, callback, strict, 'DH-SHA1');
-      }
-    }
-
-    if (data.error)
-    {
-      callback({ message: data.error }, data);
-    }
-    else
-    {
-      var secret = null;
-
-      var hashAlgorithm = algorithm.indexOf('256') !== -1 ? 'sha256' : 'sha1';
-
-      if(algorithm.indexOf('no-encryption') !== -1)
-      {
-        secret = data.mac_key;
-      }
-      else
-      {
-        var serverPublic = _fromBase64(data.dh_server_public);
-        var sharedSecret = convert.btwoc(dh.computeSecret(serverPublic, 'binary', 'binary'));
-        var hash = crypto.createHash(hashAlgorithm);
-        hash.update(sharedSecret);
-        sharedSecret = hash.digest('binary');
-        var encMacKey = convert.base64.decode(data.enc_mac_key);
-        secret = convert.base64.encode(_xor(encMacKey, sharedSecret));
-      }
-
-      if (!_isDef(data.assoc_handle)) {
-        return callback({ message: 'OpenID provider does not seem to support association; you need to use stateless mode'}, null);
-      }
-
-      openid.saveAssociation(provider, hashAlgorithm,
-        data.assoc_handle, secret, data.expires_in * 1, function(error)
-        {
-          if(error)
-          {
-            return callback(error);
-          }
-          callback(null, data);
-        });
-    }
-  });
-}
-
-var _generateAssociationRequestParameters = function(version, algorithm)
-{
-  var params = {
-    'openid.mode' : 'associate',
-  };
-
-  if(version.indexOf('2.0') !== -1)
-  {
-    params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
-  }
-
-  if(algorithm == 'DH-SHA1')
-  {
-    params['openid.assoc_type'] = 'HMAC-SHA1';
-    params['openid.session_type'] = 'DH-SHA1';
-  }
-  else if(algorithm == 'no-encryption-256')
-  {
-    if(version.indexOf('2.0') === -1)
-    {
-      params['openid.session_type'] = ''; // OpenID 1.0/1.1 requires blank
-      params['openid.assoc_type'] = 'HMAC-SHA1';
-    }
-    else
-    {
-      params['openid.session_type'] = 'no-encryption';
-      params['openid.assoc_type'] = 'HMAC-SHA256';
-    }
-  }
-  else if(algorithm == 'no-encryption')
-  {
-    if(version.indexOf('2.0') !== -1)
-    {
-      params['openid.session_type'] = 'no-encryption';
-    }
-    params['openid.assoc_type'] = 'HMAC-SHA1';
-  }
-  else
-  {
-    params['openid.assoc_type'] = 'HMAC-SHA256';
-    params['openid.session_type'] = 'DH-SHA256';
-  }
-
-  return params;
-}
-
-openid.authenticate = function(identifier, returnUrl, realm, immediate, stateless, callback, extensions, strict)
-{
-  openid.discover(identifier, strict, function(error, providers)
-  {
-    if(error)
-    {
-      return callback(error);
-    }
-    if(!providers || providers.length === 0)
-    {
-      return callback({ message: 'No providers found for the given identifier' }, null);
-    }
-
-    var providerIndex = -1;
-
-    (function chooseProvider(error, authUrl)
-    {
-      if(!error && authUrl)
-      {
-        var provider = providers[providerIndex];
-
-        if(provider.claimedIdentifier)
-        {
-          var useLocalIdentifierAsKey = provider.version.indexOf('2.0') === -1 && provider.localIdentifier && provider.claimedIdentifier != provider.localIdentifier;
-
-          return openid.saveDiscoveredInformation(useLocalIdentifierAsKey ? provider.localIdentifier : provider.claimedIdentifier, 
-            provider, function(error)
-          {
-            if(error)
-            {
-              return callback(error);
-            }
-            return callback(null, authUrl);
-          });
-        }
-        else if(provider.version.indexOf('2.0') !== -1)
-        {
-          return callback(null, authUrl);
-        }
-        else
-        {
-          chooseProvider({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
-        }
-      }
-      if(++providerIndex >= providers.length)
-      {
-        return callback({ message: 'No usable providers found for the given identifier' }, null);
-      }
-
-      var currentProvider = providers[providerIndex];
-      if(stateless)
-      {
-        _requestAuthentication(currentProvider, null, returnUrl, 
-          realm, immediate, extensions || {}, chooseProvider);
-      }
-
-      else
-      {
-        openid.associate(currentProvider, function(error, answer)
-        {
-          if(error || !answer || answer.error)
-          {
-            chooseProvider(error || answer.error, null);
-          }
-          else
-          {
-            _requestAuthentication(currentProvider, answer.assoc_handle, returnUrl, 
-              realm, immediate, extensions || {}, chooseProvider);
-          }
-        });
-        
-      }
-    })();
-  });
-}
-
-var _requestAuthentication = function(provider, assoc_handle, returnUrl, realm, immediate, extensions, callback)
-{
-  var params = {
-    'openid.mode' : immediate ? 'checkid_immediate' : 'checkid_setup'
-  };
-
-  if(provider.version.indexOf('2.0') !== -1)
-  {
-    params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
-  }
-
-  for (var i in extensions)
-  {
-    if(!extensions.hasOwnProperty(i))
-    {
-      continue;
-    }
-
-    var extension = extensions[i];
-    for (var key in extension.requestParams)
-    {
-      if (!extension.requestParams.hasOwnProperty(key)) { continue; }
-      params[key] = extension.requestParams[key];
-    }
-  }
-
-  if(provider.claimedIdentifier)
-  {
-    params['openid.claimed_id'] = provider.claimedIdentifier;
-    if(provider.localIdentifier)
-    {
-      params['openid.identity'] = provider.localIdentifier;
-    }
-    else
-    {
-      params['openid.identity'] = provider.claimedIdentifier;
-    }
-  }
-  else if(provider.version.indexOf('2.0') !== -1)
-  {
-    params['openid.claimed_id'] = params['openid.identity'] =
-      'http://specs.openid.net/auth/2.0/identifier_select';
-  }
-  else {
-    return callback({ message: 'OpenID 1.0/1.1 provider cannot be used without a claimed identifier' });
-  }
-
-  if(assoc_handle)
-  {
-    params['openid.assoc_handle'] = assoc_handle;
-  }
-
-  if(returnUrl)
-  {
-    // Value should be missing if RP does not want
-    // user to be sent back
-    params['openid.return_to'] = returnUrl;
-  }
-
-  if(realm)
-  {
-    if(provider.version.indexOf('2.0') !== -1) {
-      params['openid.realm'] = realm;
-    }
-    else {
-      params['openid.trust_root'] = realm;
-    }
-  }
-  else if(!returnUrl)
-  {
-    return callback({ message: 'No return URL or realm specified' });
-  }
-
-  callback(null, _buildUrl(provider.endpoint, params));
-}
-
-openid.verifyAssertion = function(requestOrUrl, callback, stateless, extensions, strict)
-{
-  extensions = extensions || {};
-  var assertionUrl = requestOrUrl;
-  if(typeof(requestOrUrl) !== typeof(''))
-  {
-    if(requestOrUrl.method == 'POST') {
-      if((requestOrUrl.headers['content-type'] || '').toLowerCase().indexOf('application/x-www-form-urlencoded') === 0) {
-        // POST response received
-        var data = '';
-        
-        requestOrUrl.on('data', function(chunk) {
-          data += chunk;
-        });
-        
-        requestOrUrl.on('end', function() {
-          var params = querystring.parse(data);
-          return _verifyAssertionData(params, callback, stateless, extensions, strict);
-        });
-      }
-      else {
-        return callback({ message: 'Invalid POST response from OpenID provider' });
-      }
-      
-      return; // Avoid falling through to GET method assertion
-    }
-    else if(requestOrUrl.method != 'GET') {
-      return callback({ message: 'Invalid request method from OpenID provider' });
-    }
-    assertionUrl = requestOrUrl.url;
-  }
-
-  assertionUrl = url.parse(assertionUrl, true);
-  var params = assertionUrl.query;
-
-  return _verifyAssertionData(params, callback, stateless, extensions, strict);
-}
-
-var _verifyAssertionData = function(params, callback, stateless, extensions, strict) {
-  var assertionError = _getAssertionError(params);
-  if(assertionError)
-  {
-    return callback({ message: assertionError }, { authenticated: false });
-  }
-
-  if (!_invalidateAssociationHandleIfRequested(params)) {
-    return callback({ message: 'Unable to invalidate association handle'});
-  }
-
-  // TODO: Check nonce if OpenID 2.0
-  _verifyDiscoveredInformation(params, stateless, extensions, strict, function(error, result)
-  {
-    return callback(error, result);
-  });
-};
-
-var _getAssertionError = function(params)
-{
-  if(!_isDef(params))
-  {
-    return 'Assertion request is malformed';
-  }
-  else if(params['openid.mode'] == 'error')
-  {
-    return params['openid.error'];
-  }
-  else if(params['openid.mode'] == 'cancel')
-  {
-    return 'Authentication cancelled';
-  }
-
-  return null;
-}
-
-var _invalidateAssociationHandleIfRequested = function(params)
-{
-  if (params['is_valid'] == 'true' && _isDef(params['openid.invalidate_handle'])) {
-    if(!openid.removeAssociation(params['openid.invalidate_handle'])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-var _verifyDiscoveredInformation = function(params, stateless, extensions, strict, callback)
-{
-  var claimedIdentifier = params['openid.claimed_id'];
-  var useLocalIdentifierAsKey = false;
-  if(!_isDef(claimedIdentifier))
-  {
-    if(!_isDef(params['openid.ns']))
-    {
-      // OpenID 1.0/1.1 response without a claimed identifier
-      // We need to load discovered information using the
-      // local identifier
-      useLocalIdentifierAsKey = true;
-    }
-    else {
-      // OpenID 2.0+:
-      // If there is no claimed identifier, then the
-      // assertion is not about an identity
-      return callback(null, { authenticated: false }); 
-      }
-  }
-
-  if (useLocalIdentifierAsKey) {
-    claimedIdentifier = params['openid.identity'];  
-  }
-
-  claimedIdentifier = _getCanonicalClaimedIdentifier(claimedIdentifier);
-  openid.loadDiscoveredInformation(claimedIdentifier, function(error, provider)
-  {
-    if(error)
-    {
-      return callback({ message: 'An error occured when loading previously discovered information about the claimed identifier' });
-    }
-
-    if(provider)
-    {
-      return _verifyAssertionAgainstProviders([provider], params, stateless, extensions, callback);
-    }
-    else if (useLocalIdentifierAsKey) {
-      return callback({ message: 'OpenID 1.0/1.1 response received, but no information has been discovered about the provider. It is likely that this is a fraudulent authentication response.' });
-    }
-    
-    openid.discover(claimedIdentifier, strict, function(error, providers)
-    {
-      if(error)
-      {
-        return callback(error);
-      }
-      if(!providers || !providers.length)
-      {
-        return callback({ message: 'No OpenID provider was discovered for the asserted claimed identifier' });
-      }
-
-      _verifyAssertionAgainstProviders(providers, params, stateless, extensions, callback);
-    });
-  });
-}
-
-var _verifyAssertionAgainstProviders = function(providers, params, stateless, extensions, callback)
-{
-  for(var i = 0; i < providers.length; ++i)
-  {
-    var provider = providers[i];
-    if(!!params['openid.ns'] && (!provider.version || provider.version.indexOf(params['openid.ns']) !== 0))
-    {
-      continue;
-    }
-
-    if(!!provider.version && provider.version.indexOf('2.0') !== -1)
-    {
-      var endpoint = params['openid.op_endpoint'];
-      if (provider.endpoint != endpoint) 
-      {
-        continue;
-      }
-      if(provider.claimedIdentifier) {
-        var claimedIdentifier = _getCanonicalClaimedIdentifier(params['openid.claimed_id']);
-        if(provider.claimedIdentifier != claimedIdentifier) {
-          return callback({ message: 'Claimed identifier in assertion response does not match discovered claimed identifier' });
-        }
-      }
-    }
-
-    if(!!provider.localIdentifier && provider.localIdentifier != params['openid.identity'])
-    {
-      return callback({ message: 'Identity in assertion response does not match discovered local identifier' });
-    }
-
-    return _checkSignature(params, provider, stateless, function(error, result)
-    {
-      if(error)
-      {
-        return callback(error);
-      }
-      if(extensions && result.authenticated)
-      {
-        for(var ext in extensions)
-        {
-          if (!extensions.hasOwnProperty(ext))
-          { 
-            continue; 
-          }
-          var instance = extensions[ext];
-          instance.fillResult(params, result);
-        }
-      }
-
-      return callback(null, result);
-    });
-  }
-
-  callback({ message: 'No valid providers were discovered for the asserted claimed identifier' });
-}
-
-var _checkSignature = function(params, provider, stateless, callback)
-{
-  if(!_isDef(params['openid.signed']) ||
-    !_isDef(params['openid.sig']))
-  {
-    return callback({ message: 'No signature in response' }, { authenticated: false });
-  }
-
-  if(stateless)
-  {
-    _checkSignatureUsingProvider(params, provider, callback);
-  }
-  else
-  {
-    _checkSignatureUsingAssociation(params, callback);
-  }
-}
-
-var _checkSignatureUsingAssociation = function(params, callback)
-{
-  if (!_isDef(params['openid.assoc_handle']))
-  {
-    return callback({ message: 'No association handle in provider response. Find out whether the provider supports associations and/or use stateless mode.' });
-  }
-  openid.loadAssociation(params['openid.assoc_handle'], function(error, association)
-  {
-    if(error)
-    {
-      return callback({ message: 'Error loading association' }, { authenticated: false });
-    }
-    if(!association)
-    {
-      return callback({ message:'Invalid association handle' }, { authenticated: false });
-    }
-    if(association.provider.version.indexOf('2.0') !== -1 && association.provider.endpoint !== params['openid.op_endpoint'])
-    {
-      return callback({ message:'Association handle does not match provided endpoint' }, {authenticated: false});
-    }
-    
-    var message = '';
-    var signedParams = params['openid.signed'].split(',');
-    for(var i = 0; i < signedParams.length; i++)
-    {
-      var param = signedParams[i];
-      var value = params['openid.' + param];
-      if(!_isDef(value))
-      {
-        return callback({ message: 'At least one parameter referred in signature is not present in response' }, { authenticated: false });
-      }
-      message += param + ':' + value + '\n';
-    }
-
-    var hmac = crypto.createHmac(association.type, convert.base64.decode(association.secret));
-    hmac.update(message, 'utf8');
-    var ourSignature = hmac.digest('base64');
-
-    if(ourSignature == params['openid.sig'])
-    {
-      callback(null, { authenticated: true, claimedIdentifier: association.provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : association.provider.claimedIdentifier });
-    }
-    else
-    {
-      callback({ message: 'Invalid signature' }, { authenticated: false });
-    }
-  });
-}
-
-var _checkSignatureUsingProvider = function(params, provider, callback)
-{
-  var requestParams = 
-  {
-    'openid.mode' : 'check_authentication'
-  };
-  for(var key in params)
-  {
-    if(params.hasOwnProperty(key) && key != 'openid.mode')
-    {
-      requestParams[key] = params[key];
-    }
-  }
-
-  _post(_isDef(params['openid.ns']) ? (params['openid.op_endpoint'] || provider.endpoint) : provider.endpoint, requestParams, function(data, headers, statusCode)
-  {
-    if(statusCode != 200 || data == null)
-    {
-      return callback({ message: 'Invalid assertion response from provider' }, { authenticated: false });
-    }
-    else
-    {
-      data = _decodePostData(data);
-      if(data['is_valid'] == 'true')
-      {
-        return callback(null, { authenticated: true, claimedIdentifier: provider.version.indexOf('2.0') !== -1 ? params['openid.claimed_id'] : params['openid.identity'] });
-      }
-      else
-      {
-        return callback({ message: 'Invalid signature' }, { authenticated: false });
-      }
-    }
-  });
-
-}
-
-
-var _getCanonicalClaimedIdentifier = function(claimedIdentifier) {
-  if(!claimedIdentifier) {
-    return claimedIdentifier;
-  }
-
-  var index = claimedIdentifier.indexOf('#');
-  if (index !== -1) {
-    return claimedIdentifier.substring(0, index);
-  }
-
-  return claimedIdentifier;
-};
-
-/* ==================================================================
- * Extensions
- * ================================================================== 
- */
-
-var _getExtensionAlias = function(params, ns) 
-{
-  for (var k in params)
-    if (params[k] == ns)
-      return k.replace("openid.ns.", "");
-}
-
-/* 
- * Simple Registration Extension
- * http://openid.net/specs/openid-simple-registration-extension-1_1-01.html
- */
-
-var sreg_keys = ['nickname', 'email', 'fullname', 'dob', 'gender', 'postcode', 'country', 'language', 'timezone'];
-
-openid.SimpleRegistration = function SimpleRegistration(options) 
-{
-  this.requestParams = {'openid.ns.sreg': 'http://openid.net/extensions/sreg/1.1'};
-  if (options.policy_url)
-    this.requestParams['openid.sreg.policy_url'] = options.policy_url;
-  var required = [];
-  var optional = [];
-  for (var i = 0; i < sreg_keys.length; i++)
-  {
-    var key = sreg_keys[i];
-    if (options[key]) 
-    {
-      if (options[key] == 'required')
-      {
-        required.push(key);
-      }
-      else
-      {
-        optional.push(key);
-      }
-    }
-    if (required.length)
-    {
-      this.requestParams['openid.sreg.required'] = required.join(',');
-    }
-    if (optional.length)
-    {
-      this.requestParams['openid.sreg.optional'] = optional.join(',');
-    }
-  }
-};
-
-openid.SimpleRegistration.prototype.fillResult = function(params, result)
-{
-  var extension = _getExtensionAlias(params, 'http://openid.net/extensions/sreg/1.1') || 'sreg';
-  for (var i = 0; i < sreg_keys.length; i++)
-  {
-    var key = sreg_keys[i];
-    if (params['openid.' + extension + '.' + key])
-    {
-      result[key] = params['openid.' + extension + '.' + key];
-    }
-  }
-};
-
-/* 
- * User Interface Extension
- * http://svn.openid.net/repos/specifications/user_interface/1.0/trunk/openid-user-interface-extension-1_0.html 
- */
-openid.UserInterface = function UserInterface(options) 
-{
-  if (typeof(options) != 'object')
-  {
-    options = { mode: options || 'popup' };
-  }
-
-  this.requestParams = {'openid.ns.ui': 'http://specs.openid.net/extensions/ui/1.0'};
-  for (var k in options) 
-  {
-    this.requestParams['openid.ui.' + k] = options[k];
-  }
-};
-
-openid.UserInterface.prototype.fillResult = function(params, result)
-{
-  // TODO: Fill results
-}
-
-/* 
- * Attribute Exchange Extension
- * http://openid.net/specs/openid-attribute-exchange-1_0.html 
- * Also see:
- *  - http://www.axschema.org/types/ 
- *  - http://code.google.com/intl/en-US/apis/accounts/docs/OpenID.html#Parameters
- */
-// TODO: count handling
-
-var attributeMapping = 
-{
-    'http://axschema.org/contact/country/home': 'country'
-  , 'http://axschema.org/contact/email': 'email'
-  , 'http://axschema.org/namePerson/first': 'firstname'
-  , 'http://axschema.org/pref/language': 'language'
-  , 'http://axschema.org/namePerson/last': 'lastname'
-  // The following are not in the Google document:
-  , 'http://axschema.org/namePerson/friendly': 'nickname'
-  , 'http://axschema.org/namePerson': 'fullname'
-};
-
-openid.AttributeExchange = function AttributeExchange(options) 
-{ 
-  this.requestParams = {'openid.ns.ax': 'http://openid.net/srv/ax/1.0',
-    'openid.ax.mode' : 'fetch_request'};
-  var required = [];
-  var optional = [];
-  for (var ns in options)
-  {
-    if (!options.hasOwnProperty(ns)) { continue; }
-    if (options[ns] == 'required')
-    {
-      required.push(ns);
-    }
-    else
-    {
-      optional.push(ns);
-    }
-  }
-  var self = this;
-  required = required.map(function(ns, i) 
-  {
-    var attr = attributeMapping[ns] || 'req' + i;
-    self.requestParams['openid.ax.type.' + attr] = ns;
-    return attr;
-  });
-  optional = optional.map(function(ns, i)
-  {
-    var attr = attributeMapping[ns] || 'opt' + i;
-    self.requestParams['openid.ax.type.' + attr] = ns;
-    return attr;
-  });
-  if (required.length)
-  {
-    this.requestParams['openid.ax.required'] = required.join(',');
-  }
-  if (optional.length)
-  {
-    this.requestParams['openid.ax.if_available'] = optional.join(',');
-  }
-}
-
-openid.AttributeExchange.prototype.fillResult = function(params, result)
-{
-  var extension = _getExtensionAlias(params, 'http://openid.net/srv/ax/1.0') || 'ax';
-  var regex = new RegExp('^openid\\.' + extension + '\\.(value|type)\\.(\\w+)$');
-  var aliases = {};
-  var values = {};
-  for (var k in params)
-  {
-    if (!params.hasOwnProperty(k)) { continue; }
-    var matches = k.match(regex);
-    if (!matches)
-    {
-      continue;
-    }
-    if (matches[1] == 'type')
-    {
-      aliases[params[k]] = matches[2];
-    }
-    else
-    {
-      values[matches[2]] = params[k];
-    }
-  }
-  for (var ns in aliases) 
-  {
-    if (aliases[ns] in values)
-    {
-      result[aliases[ns]] = values[aliases[ns]];
-      result[ns] = values[aliases[ns]];
-    }
-  }
-}
-
-openid.OAuthHybrid = function(options)
-{
-  this.requestParams = {
-    'openid.ns.oauth'       : 'http://specs.openid.net/extensions/oauth/1.0',
-    'openid.oauth.consumer' : options['consumerKey'],
-    'openid.oauth.scope'    : options['scope']};
-}
-
-openid.OAuthHybrid.prototype.fillResult = function(params, result)
-{
-  var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/oauth/1.0') || 'oauth'
-    , token_attr = 'openid.' + extension + '.request_token';
-  
-  
-  if(params[token_attr] !== undefined)
-  {
-    result['request_token'] = params[token_attr];
-  }
-};
-
-/* 
- * Provider Authentication Policy Extension (PAPE)
- * http://openid.net/specs/openid-provider-authentication-policy-extension-1_0.html
- * 
- * Note that this extension does not validate that the provider is obeying the
- * authentication request, it only allows the request to be made.
- *
- * TODO: verify requested 'max_auth_age' against response 'auth_time'
- * TODO: verify requested 'auth_level.ns.<cust>' (etc) against response 'auth_level.ns.<cust>'
- * TODO: verify requested 'preferred_auth_policies' against response 'auth_policies'
- *
- */
-
-/* Just the keys that aren't open to customisation */
-var pape_request_keys = ['max_auth_age', 'preferred_auth_policies', 'preferred_auth_level_types' ];
-var pape_response_keys = ['auth_policies', 'auth_time']
-
-/* Some short-hand mappings for auth_policies */ 
-var papePolicyNameMap = 
-{
-    'phishing-resistant': 'http://schemas.openid.net/pape/policies/2007/06/phishing-resistant',
-    'multi-factor': 'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
-    'multi-factor-physical': 'http://schemas.openid.net/pape/policies/2007/06/multi-factor-physical',
-    'none' : 'http://schemas.openid.net/pape/policies/2007/06/none'
-}
- 
-openid.PAPE = function PAPE(options) 
-{
-  this.requestParams = {'openid.ns.pape': 'http://specs.openid.net/extensions/pape/1.0'};
-  for (var k in options) 
-  {
-    if (k === 'preferred_auth_policies') {
-      this.requestParams['openid.pape.' + k] = _getLongPolicyName(options[k]);
-    } else {
-      this.requestParams['openid.pape.' + k] = options[k];
-    }
-  }
-  var util = require('util');
-};
-
-/* you can express multiple pape 'preferred_auth_policies', so replace each
- * with the full policy URI as per papePolicyNameMapping. 
- */
-var _getLongPolicyName = function(policyNames) {
-  var policies = policyNames.split(' ');   
-  for (var i=0; i<policies.length; i++) {
-    if (policies[i] in papePolicyNameMap) {
-      policies[i] = papePolicyNameMap[policies[i]];
-    }
-  }
-  return policies.join(' ');
-}
-
-var _getShortPolicyName = function(policyNames) {
-  var policies = policyNames.split(' ');   
-  for (var i=0; i<policies.length; i++) {
-    for (shortName in papePolicyNameMap) {
-      if (papePolicyNameMap[shortName] === policies[i]) {
-        policies[i] = shortName;
-      }
-    }
-  }
-  return policies.join(' ');
-}
-
-openid.PAPE.prototype.fillResult = function(params, result)
-{
-  var extension = _getExtensionAlias(params, 'http://specs.openid.net/extensions/pape/1.0') || 'pape';
-  var paramString = 'openid.' + extension + '.';
-  var thisParam;
-  for (var p in params) {
-    if (params.hasOwnProperty(p)) {
-      if (p.substr(0, paramString.length) === paramString) {
-        thisParam = p.substr(paramString.length);
-        if (thisParam === 'auth_policies') {
-          result[thisParam] = _getShortPolicyName(params[p]);
-        } else {
-          result[thisParam] = params[p];
-        }
-      }
-    }
-  } 
-}
-
-},{"./lib/convert":7,"./lib/xrds":8,"crypto":undefined,"http":undefined,"https":undefined,"querystring":undefined,"url":undefined,"util":undefined}],10:[function(require,module,exports){
 /**
  * `FacebookAuthorizationError` error.
  *
@@ -3125,7 +1187,7 @@ FacebookAuthorizationError.prototype.__proto__ = Error.prototype;
 // Expose constructor.
 module.exports = FacebookAuthorizationError;
 
-},{}],11:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 /**
  * `FacebookGraphAPIError` error.
  *
@@ -3159,7 +1221,7 @@ FacebookGraphAPIError.prototype.__proto__ = Error.prototype;
 // Expose constructor.
 module.exports = FacebookGraphAPIError;
 
-},{}],12:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 /**
  * `FacebookTokenError` error.
  *
@@ -3197,7 +1259,7 @@ FacebookTokenError.prototype.__proto__ = Error.prototype;
 // Expose constructor.
 module.exports = FacebookTokenError;
 
-},{}],13:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 // Load modules.
 var Strategy = require('./strategy');
 
@@ -3208,7 +1270,7 @@ exports = module.exports = Strategy;
 // Exports.
 exports.Strategy = Strategy;
 
-},{"./strategy":15}],14:[function(require,module,exports){
+},{"./strategy":11}],10:[function(require,module,exports){
 /**
  * Parse profile.
  *
@@ -3248,7 +1310,7 @@ exports.parse = function(json) {
   return profile;
 };
 
-},{}],15:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 // Load modules.
 var OAuth2Strategy = require('passport-oauth2')
   , util = require('util')
@@ -3490,7 +1552,7 @@ Strategy.prototype._convertProfileFields = function(profileFields) {
 // Expose constructor.
 module.exports = Strategy;
 
-},{"./errors/facebookauthorizationerror":10,"./errors/facebookgraphapierror":11,"./errors/facebooktokenerror":12,"./profile":14,"crypto":undefined,"passport-oauth2":30,"url":undefined,"util":undefined}],16:[function(require,module,exports){
+},{"./errors/facebookauthorizationerror":6,"./errors/facebookgraphapierror":7,"./errors/facebooktokenerror":8,"./profile":10,"crypto":undefined,"passport-oauth2":30,"url":undefined,"util":undefined}],12:[function(require,module,exports){
 /**
  * `APIError` error.
  *
@@ -3517,9 +1579,9 @@ APIError.prototype.__proto__ = Error.prototype;
 // Expose constructor.
 module.exports = APIError;
 
-},{}],17:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"./strategy":19,"dup":13}],18:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"./strategy":15,"dup":9}],14:[function(require,module,exports){
 /**
  * Parse profile.
  *
@@ -3547,7 +1609,7 @@ exports.parse = function(json) {
   return profile;
 };
 
-},{}],19:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 // Load modules.
 var OAuth2Strategy = require('passport-oauth2')
   , util = require('util')
@@ -3730,85 +1792,352 @@ Strategy.prototype.userProfile = function(accessToken, done) {
 // Expose constructor.
 module.exports = Strategy;
 
-},{"./errors/apierror":16,"./profile":18,"passport-oauth2":30,"util":undefined}],20:[function(require,module,exports){
+},{"./errors/apierror":12,"./profile":14,"passport-oauth2":30,"util":undefined}],16:[function(require,module,exports){
 /**
- * Module dependencies.
+ * `GooglePlusAPIError` error.
+ *
+ * References:
+ *   - https://developers.google.com/+/web/api/rest/
+ *
+ * @constructor
+ * @param {string} [message]
+ * @param {number} [code]
+ * @access public
  */
-var Strategy = require('./strategy');
+function GooglePlusAPIError(message, code) {
+  Error.call(this);
+  Error.captureStackTrace(this, arguments.callee);
+  this.name = 'GooglePlusAPIError';
+  this.message = message;
+  this.code = code;
+}
+
+// Inherit from `Error`.
+GooglePlusAPIError.prototype.__proto__ = Error.prototype;
 
 
-/**
- * Framework version.
- */
-// removed pkginfo ...')(module, 'version');
+// Expose constructor.
+module.exports = GooglePlusAPIError;
 
+},{}],17:[function(require,module,exports){
 /**
- * Expose constructors.
+ * `UserInfoError` error.
+ *
+ * @constructor
+ * @param {string} [message]
+ * @param {string} [code]
+ * @access public
  */
-exports.Strategy = Strategy;
+function UserInfoError(message, code) {
+  Error.call(this);
+  Error.captureStackTrace(this, arguments.callee);
+  this.name = 'UserInfoError';
+  this.message = message;
+  this.code = code;
+}
 
-},{"./strategy":21,"pkginfo":62}],21:[function(require,module,exports){
+// Inherit from `Error`.
+UserInfoError.prototype.__proto__ = Error.prototype;
+
+
+// Expose constructor.
+module.exports = UserInfoError;
+
+},{}],18:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"./strategy":21,"dup":9}],19:[function(require,module,exports){
 /**
- * Module dependencies.
+ * Parse profile.
+ *
+ * Parses user profiles as fetched from Google's Google+ API.
+ *
+ * The amount of detail in the profile varies based on the scopes granted by the
+ * user.  The following scope values add additional data:
+ *
+ *     `https://www.googleapis.com/auth/plus.login` - recommended login scope
+ *     `profile` - basic profile information
+ *     `email` - email address
+ *
+ * References:
+ *   - https://developers.google.com/+/web/api/rest/latest/people/get
+ *   - https://developers.google.com/+/web/api/rest/
+ *   - https://developers.google.com/+/web/api/rest/oauth
+ *
+ * @param {object|string} json
+ * @return {object}
+ * @access public
  */
-var util = require('util')
-  , OpenIDStrategy = require('passport-openid').Strategy;
+exports.parse = function(json) {
+  if ('string' == typeof json) {
+    json = JSON.parse(json);
+  }
+  
+  var profile = {}
+    , i, len;
+  profile.id = json.id;
+  profile.displayName = json.displayName;
+  if (json.name) {
+    profile.name = { familyName: json.name.familyName,
+                     givenName: json.name.givenName };
+  }
+  if (json.emails) {
+    profile.emails = [];
+    for (i = 0, len = json.emails.length; i < len; ++i) {
+      profile.emails.push({ value: json.emails[i].value, type: json.emails[i].type })
+    }
+  }
+  if (json.image) {
+    profile.photos = [{ value: json.image.url }];
+  }
+  profile.gender = json.gender;
+  
+  return profile;
+};
+
+},{}],20:[function(require,module,exports){
+/**
+ * Parse profile.
+ *
+ * Parses user profiles as fetched from Google's OpenID Connect-compatible user
+ * info endpoint.
+ *
+ * The amount of detail in the profile varies based on the scopes granted by the
+ * user.  The following scope values add additional data:
+ *
+ *     `profile` - basic profile information
+ *     `email` - email address
+ *
+ * References:
+ *   - https://developers.google.com/identity/protocols/OpenIDConnect
+ *
+ * @param {object|string} json
+ * @return {object}
+ * @access public
+ */
+exports.parse = function(json) {
+  if ('string' == typeof json) {
+    json = JSON.parse(json);
+  }
+  
+  var profile = {};
+  profile.id = json.sub;
+  profile.displayName = json.name;
+  if (json.family_name || json.given_name) {
+    profile.name = { familyName: json.family_name,
+                     givenName: json.given_name };
+  }
+  if (json.email) {
+    profile.emails = [ { value: json.email, verified: json.email_verified } ];
+  }
+  if (json.picture) {
+    profile.photos = [{ value: json.picture }];
+  }
+  
+  return profile;
+};
+
+},{}],21:[function(require,module,exports){
+// Load modules.
+var OAuth2Strategy = require('passport-oauth2')
+  , util = require('util')
+  , uri = require('url')
+  , GooglePlusProfile = require('./profile/googleplus')
+  , OpenIDProfile = require('./profile/openid')
+  , InternalOAuthError = require('passport-oauth2').InternalOAuthError
+  , GooglePlusAPIError = require('./errors/googleplusapierror')
+  , UserInfoError = require('./errors/userinfoerror');
 
 
 /**
  * `Strategy` constructor.
  *
  * The Google authentication strategy authenticates requests by delegating to
- * Google using the OpenID 2.0 protocol.
+ * Google using the OAuth 2.0 protocol.
  *
- * Applications must supply a `validate` callback which accepts an `identifier`,
- * and optionally a service-specific `profile`, and then calls the `done`
+ * Applications must supply a `verify` callback which accepts an `accessToken`,
+ * `refreshToken` and service-specific `profile`, and then calls the `cb`
  * callback supplying a `user`, which should be set to `false` if the
  * credentials are not valid.  If an exception occured, `err` should be set.
  *
  * Options:
- *   - `returnURL`  URL to which Google will redirect the user after authentication
- *   - `realm`      the part of URL-space for which an OpenID authentication request is valid
- *   - `profile`    enable profile exchange, defaults to _true_
+ *   - `clientID`      your Google application's client id
+ *   - `clientSecret`  your Google application's client secret
+ *   - `callbackURL`   URL to which Google will redirect the user after granting authorization
  *
  * Examples:
  *
  *     passport.use(new GoogleStrategy({
- *         returnURL: 'http://localhost:3000/auth/google/return',
- *         realm: 'http://localhost:3000/'
+ *         clientID: '123-456-789',
+ *         clientSecret: 'shhh-its-a-secret'
+ *         callbackURL: 'https://www.example.net/auth/google/callback'
  *       },
- *       function(identifier, profile, done) {
- *         User.findByOpenID(identifier, function (err, user) {
- *           done(err, user);
+ *       function(accessToken, refreshToken, profile, cb) {
+ *         User.findOrCreate(..., function (err, user) {
+ *           cb(err, user);
  *         });
  *       }
  *     ));
  *
- * @param {Object} options
- * @param {Function} verify
- * @api public
+ * @constructor
+ * @param {object} options
+ * @param {function} verify
+ * @access public
  */
-function Strategy(options, validate) {
+function Strategy(options, verify) {
   options = options || {};
-  options.providerURL = options.providerURL || 'https://www.google.com/accounts/o8/id';
-  options.profile =  (options.profile === undefined) ? true : options.profile;
+  options.authorizationURL = options.authorizationURL || 'https://accounts.google.com/o/oauth2/v2/auth';
+  options.tokenURL = options.tokenURL || 'https://www.googleapis.com/oauth2/v4/token';
 
-  OpenIDStrategy.call(this, options, validate);
+  OAuth2Strategy.call(this, options, verify);
   this.name = 'google';
+  this._userProfileURL = options.userProfileURL || 'https://www.googleapis.com/plus/v1/people/me';
+  
+  var url = uri.parse(this._userProfileURL);
+  if (url.pathname.indexOf('/userinfo') == (url.pathname.length - '/userinfo'.length)) {
+    this._userProfileFormat = 'openid';
+  } else {
+    this._userProfileFormat = 'google+'; // Google Sign-In
+  }
+}
+
+// Inherit from `OAuth2Strategy`.
+util.inherits(Strategy, OAuth2Strategy);
+
+
+/**
+ * Retrieve user profile from Google.
+ *
+ * This function constructs a normalized profile, with the following properties:
+ *
+ *   - `provider`         always set to `google`
+ *   - `id`
+ *   - `username`
+ *   - `displayName`
+ *
+ * @param {string} accessToken
+ * @param {function} done
+ * @access protected
+ */
+Strategy.prototype.userProfile = function(accessToken, done) {
+  var self = this;
+  this._oauth2.get(this._userProfileURL, accessToken, function (err, body, res) {
+    var json;
+    
+    if (err) {
+      if (err.data) {
+        try {
+          json = JSON.parse(err.data);
+        } catch (_) {}
+      }
+      
+      if (json && json.error && json.error.message) {
+        return done(new GooglePlusAPIError(json.error.message, json.error.code));
+      } else if (json && json.error && json.error_description) {
+        return done(new UserInfoError(json.error_description, json.error));
+      }
+      return done(new InternalOAuthError('Failed to fetch user profile', err));
+    }
+    
+    try {
+      json = JSON.parse(body);
+    } catch (ex) {
+      return done(new Error('Failed to parse user profile'));
+    }
+    
+    var profile;
+    switch (self._userProfileFormat) {
+    case 'openid':
+      profile = OpenIDProfile.parse(json);
+      break;
+    default: // Google Sign-In
+      profile = GooglePlusProfile.parse(json);
+      break;
+    }
+    
+    profile.provider  = 'google';
+    profile._raw = body;
+    profile._json = json;
+    
+    done(null, profile);
+  });
 }
 
 /**
- * Inherit from `OpenIDStrategy`.
+ * Return extra Google-specific parameters to be included in the authorization
+ * request.
+ *
+ * @param {object} options
+ * @return {object}
+ * @access protected
  */
-util.inherits(Strategy, OpenIDStrategy);
+Strategy.prototype.authorizationParams = function(options) {
+  var params = {};
+  
+  // https://developers.google.com/identity/protocols/OAuth2WebServer
+  if (options.accessType) {
+    params['access_type'] = options.accessType;
+  }
+  if (options.prompt) {
+    params['prompt'] = options.prompt;
+  }
+  if (options.loginHint) {
+    params['login_hint'] = options.loginHint;
+  }
+  if (options.includeGrantedScopes) {
+    params['include_granted_scopes'] = true;
+  }
+  
+  // https://developers.google.com/identity/protocols/OpenIDConnect
+  if (options.display) {
+    // Specify what kind of display consent screen to display to users.
+    //   https://developers.google.com/accounts/docs/OpenIDConnect#authenticationuriparameters
+    params['display'] = options.display;
+  }
+  
+  // Google Apps for Work
+  if (options.hostedDomain || options.hd) {
+    // This parameter is derived from Google's OAuth 1.0 endpoint, and (although
+    // undocumented) is supported by Google's OAuth 2.0 endpoint was well.
+    //   https://developers.google.com/accounts/docs/OAuth_ref
+    params['hd'] = options.hostedDomain || options.hd;
+  }
+  
+  // Google+
+  if (options.requestVisibleActions) {
+    // Space separated list of allowed app actions
+    // as documented at:
+    //  https://developers.google.com/+/web/app-activities/#writing_an_app_activity_using_the_google_apis_client_libraries
+    //  https://developers.google.com/+/api/moment-types/
+    params['request_visible_actions'] = options.requestVisibleActions;
+  }
+  
+  // OpenID 2.0 migration
+  if (options.openIDRealm) {
+    // This parameter is needed when migrating users from Google's OpenID 2.0 to OAuth 2.0
+    //   https://developers.google.com/accounts/docs/OpenID?hl=ja#adjust-uri
+    params['openid.realm'] = options.openIDRealm;
+  }
+  
+  // Undocumented
+  if (options.approvalPrompt) {
+    params['approval_prompt'] = options.approvalPrompt;
+  }
+  if (options.userID) {
+    // Undocumented, but supported by Google's OAuth 2.0 endpoint.  Appears to
+    // be equivalent to `login_hint`.
+    params['user_id'] = options.userID;
+  }
+  
+  return params;
+}
 
 
 /**
  * Expose `Strategy`.
- */ 
+ */
 module.exports = Strategy;
 
-},{"passport-openid":37,"util":undefined}],22:[function(require,module,exports){
+},{"./errors/googleplusapierror":16,"./errors/userinfoerror":17,"./profile/googleplus":19,"./profile/openid":20,"passport-oauth2":30,"url":undefined,"util":undefined}],22:[function(require,module,exports){
 /**
  * `InternalOAuthError` error.
  *
@@ -4312,7 +2641,7 @@ OAuthStrategy.prototype._createOAuthError = function(message, err) {
 // Expose constructor.
 module.exports = OAuthStrategy;
 
-},{"./errors/internaloautherror":22,"./requesttoken/session":24,"./utils":26,"oauth":1,"passport-strategy":47,"url":undefined,"util":undefined}],26:[function(require,module,exports){
+},{"./errors/internaloautherror":22,"./requesttoken/session":24,"./utils":26,"oauth":1,"passport-strategy":35,"url":undefined,"util":undefined}],26:[function(require,module,exports){
 exports.merge = require('utils-merge');
 
 /**
@@ -4346,7 +2675,7 @@ exports.originalURL = function(req, options) {
   return protocol + '://' + host + path;
 };
 
-},{"utils-merge":64}],27:[function(require,module,exports){
+},{"utils-merge":51}],27:[function(require,module,exports){
 /**
  * `AuthorizationError` error.
  *
@@ -4601,7 +2930,7 @@ SessionStore.prototype.verify = function(req, providedState, callback) {
 // Expose constructor.
 module.exports = SessionStore;
 
-},{"uid2":63}],33:[function(require,module,exports){
+},{"uid2":50}],33:[function(require,module,exports){
 // Load modules.
 var passport = require('passport-strategy')
   , url = require('url')
@@ -4988,1765 +3317,9 @@ OAuth2Strategy.prototype._createOAuthError = function(message, err) {
 // Expose constructor.
 module.exports = OAuth2Strategy;
 
-},{"./errors/authorizationerror":27,"./errors/internaloautherror":28,"./errors/tokenerror":29,"./state/null":31,"./state/session":32,"./utils":34,"oauth":1,"passport-strategy":47,"url":undefined,"util":undefined}],34:[function(require,module,exports){
+},{"./errors/authorizationerror":27,"./errors/internaloautherror":28,"./errors/tokenerror":29,"./state/null":31,"./state/session":32,"./utils":34,"oauth":1,"passport-strategy":35,"url":undefined,"util":undefined}],34:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"dup":26,"utils-merge":64}],35:[function(require,module,exports){
-/**
- * `BadRequestError` error.
- *
- * @api public
- */
-function BadRequestError(message) {
-  Error.call(this);
-  Error.captureStackTrace(this, arguments.callee);
-  this.name = 'BadRequestError';
-  this.message = message || null;
-};
-
-/**
- * Inherit from `Error`.
- */
-BadRequestError.prototype.__proto__ = Error.prototype;
-
-
-/**
- * Expose `BadRequestError`.
- */
-module.exports = BadRequestError;
-
-},{}],36:[function(require,module,exports){
-/**
- * `InternalOpenIDError` error.
- *
- * InternalOpenIDError wraps errors generated by node-openid.  By wrapping these
- * objects, error messages can be formatted in a manner that aids in debugging
- * OpenID issues.
- *
- * @api public
- */
-function InternalOpenIDError(message, err) {
-  Error.call(this);
-  Error.captureStackTrace(this, arguments.callee);
-  this.name = 'InternalOpenIDError';
-  this.message = message;
-  this.openidError = err;
-};
-
-/**
- * Inherit from `Error`.
- */
-InternalOpenIDError.prototype.__proto__ = Error.prototype;
-
-/**
- * Returns a string representing the error.
- *
- * @return {String}
- * @api public
- */
-InternalOpenIDError.prototype.toString = function() {
-  var m = this.message;
-  if (this.openidError) {
-    if (this.openidError instanceof Error) {
-      m += ' (' + this.openidError + ')';
-    }
-    else if (this.openidError.message) {
-      m += ' (message: ' + this.openidError.message + ')';
-    }
-  }
-  return m;
-}
-
-
-/**
- * Expose `InternalOpenIDError`.
- */
-module.exports = InternalOpenIDError;
-
-},{}],37:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var openid = require('openid')
-  , Strategy = require('./strategy')
-  , BadRequestError = require('./errors/badrequesterror')
-  , InternalOpenIDError = require('./errors/internalopeniderror');
-
-
-/**
- * Framework version.
- */
-// removed pkginfo ...')(module, 'version');
-
-/**
- * Expose constructors.
- */
-exports.Strategy = Strategy;
-
-exports.BadRequestError = BadRequestError;
-exports.InternalOpenIDError = InternalOpenIDError;
-
-
-/**
- * Register a discovery function.
- *
- * Under most circumstances, registering a discovery function is not necessary,
- * due to the fact that the OpenID specification standardizes a discovery
- * procedure.
- *
- * When authenticating against a set of pre-approved OpenID providers, assisting
- * the discovery process with this information is an optimization that avoids
- * network requests for well-known endpoints.  It is also useful in
- * circumstances where work-arounds need to be put in place to address issues
- * with buggy OpenID providers or the underlying openid module.
- *
- * Discovery functions accept an `identifier` and `done` callback, which should
- * be invoked with a `provider` object containing `version` and `endpoint`
- * properties (or an `err` if an exception occurred).
- *
- * Example:
- *
- *     openid.discover(function(identifier, done) {
- *       if (identifier.indexOf('https://openid.example.com/id/') == 0) {
- *         var provider = {};
- *         provider.version = 'http://specs.openid.net/auth/2.0';
- *         provider.endpoint = 'https://openid.examle.com/api/auth';
- *         return done(null, provider);
- *       }
- *       return done(null, null);
- *     })
- *
- * @param {Function} fn
- * @api public
- */
-exports.discover = function(fn) {
-  discoverers.push(fn);
-};
-
-var discoverers = [];
-
-/**
- * Swizzle the underlying loadDiscoveredInformation function in the openid
- * module.
- */
-var loadDiscoveredInformation = openid.loadDiscoveredInformation;
-openid.loadDiscoveredInformation = function(key, callback) {
-  var stack = discoverers;
-  (function pass(i, err, provider) {
-    // an error occurred or a provider was found, done
-    if (err || provider) { return callback(err, provider); }
-    
-    var discover = stack[i];
-    if (!discover) {
-      // The list of custom discovery functions has been exhausted.  Call the
-      // original implementation provided by the openid module.
-      return loadDiscoveredInformation(key, callback);
-    }
-    
-    try {
-      discover(key, function(e, p) { pass(i + 1, e, p); });
-    } catch(e) {
-      return callback(e);
-    }
-  })(0);
-}
-
-},{"./errors/badrequesterror":35,"./errors/internalopeniderror":36,"./strategy":38,"openid":9,"pkginfo":62}],38:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var passport = require('passport')
-  , openid = require('openid')
-  , util = require('util')
-  , BadRequestError = require('./errors/badrequesterror')
-  , InternalOpenIDError = require('./errors/internalopeniderror');
-
-
-/**
- * `Strategy` constructor.
- *
- * The OpenID authentication strategy authenticates requests using the OpenID
- * 2.0 or 1.1 protocol.
- *
- * OpenID provides a decentralized authentication protocol, whereby users can
- * authenticate using their choice of OpenID provider.  Authenticating in this
- * this manner involves a sequence of events, including prompting the user to
- * enter their OpenID identifer and redirecting the user to their OpenID
- * provider for authentication.  Once authenticated, the user is redirected back
- * to the application with an assertion regarding the identifier.
- *
- * Applications must supply a `verify` callback which accepts an `identifier`,
- * an optional service-specific `profile`, an optional set of policy extensions
- * and then calls the `done` callback supplying a `user`, which should be set to 
- * `false` if the credentials are not valid.  If an exception occured, `err` 
- * should be set.
- *
- * Options:
- *   - `returnURL`         URL to which the OpenID provider will redirect the user after authentication
- *   - `realm`             the part of URL-space for which an OpenID authentication request is valid
- *   - `profile`           enable profile exchange, defaults to _false_
- *   - `pape`              when present, enables the OpenID Provider Authentication Policy Extension
- *                         (http://openid.net/specs/openid-provider-authentication-policy-extension-1_0.html)
- *   - `pape.maxAuthAge`   sets the PAPE maximum authentication age in seconds
- *   - `pape.preferredAuthPolicies` sets the preferred set of PAPE authentication policies for the 
- *                         relying party to use for example `multi-factor`, `multi-factor-physical`
- *                         or `phishing-resistant` (either an array or a string)
- *   - `identifierField`   field name where the OpenID identifier is found, defaults to 'openid_identifier'
- *   - `passReqToCallback` when `true`, `req` is the first argument to the verify callback (default: `false`)
- *
- * Examples:
- *
- *     passport.use(new OpenIDStrategy({
- *         returnURL: 'http://localhost:3000/auth/openid/return',
- *         realm: 'http://localhost:3000/'
- *       },
- *       function(identifier, done) {
- *         User.findByOpenID(identifier, function (err, user) {
- *           done(err, user);
- *         });
- *       }
- *     ));
- *
- *     passport.use(new OpenIDStrategy({
- *         returnURL: 'http://localhost:3000/auth/openid/return',
- *         realm: 'http://localhost:3000/',
- *         profile: true,
- *         pape: { maxAuthAge : 600 } 
- *       },
- *       function(identifier, profile, done) {
- *         User.findByOpenID(identifier, function (err, user) {
- *           done(err, user);
- *         });
- *       }
- *     ));
- *
- * @param {Object} options
- * @param {Function} verify
- * @api public
- */
-function Strategy(options, verify) {
-  if (!options.returnURL) throw new Error('OpenID authentication requires a returnURL option');
-  if (!verify) throw new Error('OpenID authentication strategy requires a verify callback');
-  
-  passport.Strategy.call(this);
-  this.name = 'openid';
-  this._verify = verify;
-  this._profile = options.profile;
-  this._pape = options.pape;
-  this._passReqToCallback = options.passReqToCallback;
-  
-  var extensions = [];
-  if (options.profile) {
-    var sreg = new openid.SimpleRegistration({
-      "fullname" : true,
-      "nickname" : true, 
-      "email" : true, 
-      "dob" : true, 
-      "gender" : true, 
-      "postcode" : true,
-      "country" : true, 
-      "timezone" : true,
-      "language" : true
-    });
-    extensions.push(sreg);
-  }
-  if (options.profile) {
-    var ax = new openid.AttributeExchange({
-      "http://axschema.org/namePerson" : "required",
-      "http://axschema.org/namePerson/first": "required",
-      "http://axschema.org/namePerson/last": "required",
-      "http://axschema.org/contact/email": "required"
-    });
-    extensions.push(ax);
-  }
-
-  if (options.ui) {
-    // ui: { mode: 'popup', icon: true, lang: 'fr-FR' }
-    var ui = new openid.UserInterface(options.ui);
-    extensions.push(ui);
-  }
-
-  if (options.pape) {
-    var papeOptions = {};
-    if (options.pape.hasOwnProperty("maxAuthAge")) {
-      papeOptions.max_auth_age = options.pape.maxAuthAge;
-	  }
-    if (options.pape.preferredAuthPolicies) {
-      if (typeof options.pape.preferredAuthPolicies === "string") {
-        papeOptions.preferred_auth_policies = options.pape.preferredAuthPolicies;
-      } else if (Array.isArray(options.pape.preferredAuthPolicies)) {
-        papeOptions.preferred_auth_policies = options.pape.preferredAuthPolicies.join(" ");
-      }
-    }
-    var pape = new openid.PAPE(papeOptions);
-    extensions.push(pape);
-  }
-  
-  if (options.oauth) {
-    var oauthOptions = {};
-    oauthOptions.consumerKey = options.oauth.consumerKey;
-    oauthOptions.scope = options.oauth.scope;
-    
-    var oauth = new openid.OAuthHybrid(oauthOptions);
-    extensions.push(oauth);
-  }
-  
-  this._relyingParty = new openid.RelyingParty(
-    options.returnURL,
-    options.realm,
-    (options.stateless === undefined) ? false : options.stateless,
-    (options.secure === undefined) ? true : options.secure,
-    extensions);
-      
-  this._providerURL = options.providerURL;
-  this._identifierField = options.identifierField || 'openid_identifier';
-}
-
-/**
- * Inherit from `passport.Strategy`.
- */
-util.inherits(Strategy, passport.Strategy);
-
-
-/**
- * Authenticate request by delegating to an OpenID provider using OpenID 2.0 or
- * 1.1.
- *
- * @param {Object} req
- * @api protected
- */
-Strategy.prototype.authenticate = function(req) {
-
-  if (req.query && req.query['openid.mode']) {
-    // The request being authenticated contains an `openid.mode` parameter in
-    // the query portion of the URL.  This indicates that the OpenID Provider
-    // is responding to a prior authentication request with either a positive or
-    // negative assertion.  If a positive assertion is received, it will be
-    // verified according to the rules outlined in the OpenID 2.0 specification.
-    
-    // NOTE: node-openid (0.3.1), which is used internally, will treat a cancel
-    //       response as an error, setting `err` in the verifyAssertion
-    //       callback.  However, for consistency with Passport semantics, a
-    //       cancel response should be treated as an authentication failure,
-    //       rather than an exceptional error.  As such, this condition is
-    //       trapped and handled prior to being given to node-openid.
-    
-    if (req.query['openid.mode'] === 'cancel') { return this.fail({ message: 'OpenID authentication canceled' }); }
-    
-    var self = this;
-    this._relyingParty.verifyAssertion(req.url, function(err, result) {
-      if (err) { return self.error(new InternalOpenIDError('Failed to verify assertion', err)); }
-      if (!result.authenticated) { return self.error(new Error('OpenID authentication failed')); }
-      
-      var profile = self._parseProfileExt(result);
-      var pape = self._parsePAPEExt(result);
-      var oauth = self._parseOAuthExt(result);
-
-      function verified(err, user, info) {
-        if (err) { return self.error(err); }
-        if (!user) { return self.fail(info); }
-        self.success(user, info);
-      }
-      
-      
-      var arity = self._verify.length;
-      if (self._passReqToCallback) {
-        if (arity == 6) {
-          self._verify(req, result.claimedIdentifier, profile, pape, oauth, verified);
-        } else if (arity == 5) {
-          self._verify(req, result.claimedIdentifier, profile, pape, verified);
-        } else if (arity == 4 || self._profile) {
-          // self._profile check covers the case where callback uses `arguments`
-          // and arity == 0
-          self._verify(req, result.claimedIdentifier, profile, verified);
-        } else {
-          self._verify(req, result.claimedIdentifier, verified);
-        }
-      } else {
-        if (arity == 5) {
-          self._verify(result.claimedIdentifier, profile, pape, oauth, verified);
-        } else if (arity == 4) {
-          self._verify(result.claimedIdentifier, profile, pape, verified);
-        } else if (arity == 3 || self._profile) {
-          // self._profile check covers the case where callback uses `arguments`
-          // and arity == 0
-          self._verify(result.claimedIdentifier, profile, verified);
-        } else {
-          self._verify(result.claimedIdentifier, verified);
-        }
-      }
-    });
-  } else {
-    // The request being authenticated is initiating OpenID authentication.  By
-    // default, an `openid_identifier` parameter is expected as a parameter,
-    // typically input by a user into a form.
-    //
-    // During the process of initiating OpenID authentication, discovery will be
-    // performed to determine the endpoints used to authenticate with the user's
-    // OpenID provider.  Optionally, and by default, an association will be
-    // established with the OpenID provider which is used to verify subsequent
-    // protocol messages and reduce round trips.
-  
-    var identifier = undefined;
-    if (req.body && req.body[this._identifierField]) {
-      identifier = req.body[this._identifierField];
-    } else if (req.query && req.query[this._identifierField]) {
-      identifier = req.query[this._identifierField];
-    } else if (this._providerURL) {
-      identifier = this._providerURL;
-    }
-    
-    if (!identifier) { return this.fail(new BadRequestError('Missing OpenID identifier')); }
-
-    var self = this;
-    this._relyingParty.authenticate(identifier, false, function(err, providerUrl) {
-      if (err || !providerUrl) { return self.error(new InternalOpenIDError('Failed to discover OP endpoint URL', err)); }
-      self.redirect(providerUrl);
-    });
-  }
-}
-
-/** 
- * Register a function used to save associations.
- *
- * An association establishes a shared secret between a relying party and an
- * OpenID provider, which is used to verify subsequent protocol messages and
- * reduce round trips.  Registering a function allows an application to
- * implement storage of associations as necessary.
- *
- * The function accepts six arguments: `handle`, `provider`, `algorithm`,
- * `secret`, `expiresIn`, and `done` a callback to invoke when the association
- * has been saved.
- *
- * After the association has been saved, the corresponding `loadAssociation`
- * function will be used to load it when needed.
- *
- * Internally, this function makes use of `saveAssociation` in the underlying
- * node-openid module.  Refer to that for more information.  Note, however, that
- * the argument order has been modified to pass `handle` as the first argument,
- * as it is naturally the key used to later load the association.
- *
- * Examples:
- *
- *     strategy.saveAssociation(function(handle, provider, algorithm, secret, expiresIn, done) {
- *       saveAssoc(handle, provider, algorithm, secret, expiresIn, function(err) {
- *         if (err) { return done(err) }
- *         return done();
- *       });
- *     });
- *
- * References:
- *  - [Establishing Associations](http://openid.net/specs/openid-authentication-2_0.html#associations)
- *
- * @param {Function} fn
- * @return {Strategy} for chaining
- * @api public
- */
-Strategy.prototype.saveAssociation = function(fn) {
-  // wrap to make `handle` the first argument to `fn`.  this order is more
-  // natural due to the fact that `handle` this is the "key" when subsequently
-  // loading the association.
-  openid.saveAssociation = function(provider, type, handle, secret, expiry, callback) {
-    fn(handle, provider, type, secret, expiry, callback)
-  }
-  return this;  // return this for chaining
-}
-
-/** 
- * Register a function used to load associations.
- *
- * An association establishes a shared secret between a relying party and an
- * OpenID provider, which is used to verify subsequent protocol messages and
- * reduce round trips.  Registering a function allows an application to
- * implement loading of associations as necessary.
- *
- * The function accepts two arguments: `handle` and `done` a callback to invoke
- * when the association has been loaded.  `done` should be invoked with a
- * `provider`, `algorithm`, and `secret` (or `err` if an exception occurred).
- *
- * This function is used to retrieve associations previously saved with the
- * corresponding `saveAssociation` function.
- *
- * Internally, this function makes use of `loadAssociation` in the underlying
- * node-openid module.  Refer to that for more information.  Note, however, that
- * the callback is supplied with `provider`, `algorithm`, and `secret` as
- * individual arguments, rather than a single object containing them as
- * properties.
- *
- * Examples:
- *
- *     strategy.loadAssociation(function(handle, done) {
- *       loadAssoc(handle, function(err, provider, algorithm, secret) {
- *         if (err) { return done(err) }
- *         return done(null, provider, algorithm, secret)
- *       });
- *     });
- *
- * References:
- *  - [Establishing Associations](http://openid.net/specs/openid-authentication-2_0.html#associations)
- *
- * @param {Function} fn
- * @return {Strategy} for chaining
- * @api public
- */
-Strategy.prototype.loadAssociation = function(fn) {
-  // wrap to allow individual arguments to `done` callback.  this seems more
-  // natural since these were individual arguments to the corresponding
-  // `saveAssociation` function.
-  openid.loadAssociation = function(handle, callback) {
-    fn(handle, function(err, provider, algorithm, secret) {
-      if (err) { return callback(err, null); }
-      var obj = {
-        provider: provider,
-        type: algorithm,
-        secret: secret
-      }
-      return callback(null, obj);
-    });
-  }
-  return this;  // return this for chaining
-}
-
-/** 
- * Register a function used to cache discovered info.
- *
- * Caching discovered information about a provider can significantly speed up
- * the verification of positive assertions.  Registering a function allows an
- * application to implement storage of this info as necessary.
- *
- * The function accepts three arguments: `identifier` (which serves as a key to
- * the provider information), `provider` (the provider information being
- * cached), and `done` a callback to invoke when the information has been
- * stored.
- *
- * After the data has been cached, the corresponding `loadDiscoveredInfo`
- * function will be used to look it up when needed.
- *
- * This corresponds directly to the `saveDiscoveredInformation` provided by the
- * underlying node-openid module.  Refer to that for more information.
- *
- * Examples:
- *
- *     strategy.saveDiscoveredInfo(function(identifier, provider, done) {
- *       saveInfo(identifier, provider, function(err) {
- *         if (err) { return done(err) }
- *         return done();
- *       });
- *     };
- *
- * @param {Function} fn
- * @return {Strategy} for chaining
- * @api public
- */
-Strategy.prototype.saveDiscoveredInfo = 
-Strategy.prototype.saveDiscoveredInformation = function(fn) {
-  openid.saveDiscoveredInformation = fn;
-  return this;  // return this for chaining
-}
-
-/** 
- * Register a function used to load discovered info from cache.
- *
- * Caching discovered information about a provider can significantly speed up
- * the verification of positive assertions.  Registering a function allows an
- * application to implement laoding of this info as necessary.
- *
- * The function accepts two arguments: `identifier` (which serves as a key to
- * the provider information), and `done` a callback to invoke when the
- * information has been loaded.
- *
- * This function is used to retrieve data previously cached with the
- * corresponding `saveDiscoveredInfo` function.
- *
- * This corresponds directly to the `loadDiscoveredInformation` provided by the
- * underlying node-openid module.  Refer to that for more information.
- *
- * Examples:
- *
- *     strategy.loadDiscoveredInfo(function(identifier, done) {
- *       loadInfo(identifier, function(err, provider) {
- *         if (err) { return done(err) }
- *         return done();
- *       });
- *     });
- *
- * @param {Function} fn
- * @return {Strategy} for chaining
- * @api public
- */
-Strategy.prototype.loadDiscoveredInfo =
-Strategy.prototype.loadDiscoveredInformation = function(fn) {
-  openid.loadDiscoveredInformation = fn;
-  return this;  // return this for chaining
-}
-
-/**
- * Parse user profile from OpenID response.
- *
- * Profile exchange can take place via OpenID extensions, the two common ones in
- * use are Simple Registration and Attribute Exchange.  If an OpenID provider
- * supports these extensions, the parameters will be parsed to build the user's
- * profile.
- *
- * @param {Object} params
- * @api private
- */
-Strategy.prototype._parseProfileExt = function(params) {
-  var profile = {};
-  
-  // parse simple registration parameters
-  profile.displayName = params['fullname'];
-  profile.emails = [{ value: params['email'] }];
-  
-  // parse attribute exchange parameters
-  profile.name = { familyName: params['lastname'],
-                   givenName: params['firstname'] };
-  if (!profile.displayName) {
-    if (params['firstname'] && params['lastname']) {
-      profile.displayName = params['firstname'] + ' ' + params['lastname'];
-    }
-  }
-  if (!profile.emails) {
-    profile.emails = [{ value: params['email'] }];
-  }
-
-  return profile;
-}
-
-Strategy.prototype._parsePAPEExt = function(params) {
-  var pape = {};
-  // parse PAPE parameters
-  if (params['auth_policies']) {
-  	pape.authPolicies = params['auth_policies'].split(' ');
-  }
-  if (params['auth_time']) {
-    pape.authTime = new Date(params['auth_time']);
-  }
-  return pape;
-}
-
-Strategy.prototype._parseOAuthExt = function(params) {
-  var oauth = {};
-  // parse OAuth parameters
-  if (params['request_token']) {
-  	oauth.requestToken = params['request_token'];
-  }
-  return oauth;
-}
-
-
-/**
- * Expose `Strategy`.
- */ 
-module.exports = Strategy;
-
-},{"./errors/badrequesterror":35,"./errors/internalopeniderror":36,"openid":9,"passport":42,"util":undefined}],39:[function(require,module,exports){
-/**
- * Export actions prototype for strategies operating within an HTTP context.
- */
-var actions = module.exports = {};
-
-
-/**
- * Authenticate `user`, with optional `info`.
- *
- * Strategies should call this function to successfully authenticate a user.
- * `user` should be an object supplied by the application after it has been
- * given an opportunity to verify credentials.  `info` is an optional argument
- * containing additional user information.  This is useful for third-party
- * authentication strategies to pass profile details.
- *
- * @param {Object} user
- * @param {Object} info
- * @api public
- */
-actions.success = function(user, info) {
-  this.delegate.success.apply(this, arguments);
-}
-
-/**
- * Fail authentication, with optional `challenge` and `status`, defaulting to
- * 401.
- *
- * Strategies should call this function to fail an authentication attempt.
- *
- * @param {String} challenge
- * @param {Number} status
- * @api public
- */
-actions.fail = function(challenge, status) {
-  this.delegate.fail.apply(this, arguments);
-}
-
-/**
- * Redirect to `url` with optional `status`, defaulting to 302.
- *
- * Strategies should call this function to redirect the user (via their user
- * agent) to a third-party website for authentication.
- *
- * @param {String} url
- * @param {Number} status
- * @api public
- */
-actions.redirect = function(url, status) {
-  var res = this.res;
-  if (typeof res.redirect == 'function') {
-    // If possible use redirect method on the response
-    // Assume Express API, optional status param comes first
-    if (status) {
-      res.redirect(status, url);
-    } else {
-      res.redirect(url);
-    }
-  } else {
-    // Otherwise fall back to native methods
-    res.statusCode = status || 302;
-    res.setHeader('Location', url);
-    res.setHeader('Content-Length', '0');
-    res.end();
-  }
-}
-
-/**
- * Pass without making a success or fail decision.
- *
- * Under most circumstances, Strategies should not need to call this function.
- * It exists primarily to allow previous authentication state to be restored,
- * for example from an HTTP session.
- *
- * @api public
- */
-actions.pass = function() {
-  this.next();
-}
-
-/**
- * Internal error while performing authentication.
- *
- * Strategies should call this function when an internal error occurs during the
- * process of performing authentication; for example, if the user directory is
- * not available.
- *
- * @param {Error} err
- * @api public
- */
-actions.error = function(err) {
-  this.next(err);
-}
-
-
-},{}],40:[function(require,module,exports){
-/**
- * `Context` constructor.
- *
- * @api private
- */
-function Context(delegate, req, res, next) {
-  this.delegate = delegate;
-  this.req = req;
-  this.res = res;
-  this.next = next;
-}
-
-
-/**
- * Expose `Context`.
- */
-module.exports = Context;
-
-},{}],41:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var http = require('http')
-  , req = http.IncomingMessage.prototype;
-
-
-/**
- * Intiate a login session for `user`.
- *
- * Options:
- *   - `session`  Save login state in session, defaults to _true_
- *
- * Examples:
- *
- *     req.logIn(user, { session: false });
- *
- *     req.logIn(user, function(err) {
- *       if (err) { throw err; }
- *       // session saved
- *     });
- *
- * @param {User} user
- * @param {Object} options
- * @param {Function} done
- * @api public
- */
-req.login =
-req.logIn = function(user, options, done) {
-  if (!this._passport) throw new Error('passport.initialize() middleware not in use');
-  
-  if (!done && typeof options === 'function') {
-    done = options;
-    options = {};
-  }
-  options = options || {};
-  var property = this._passport.instance._userProperty || 'user';
-  var session = (options.session === undefined) ? true : options.session;
-  
-  this[property] = user;
-  if (session) {
-    var self = this;
-    this._passport.instance.serializeUser(user, function(err, obj) {
-      if (err) { self[property] = null; return done(err); }
-      self._passport.session.user = obj;
-      done();
-    });
-  } else {
-    done && done();
-  }
-}
-
-/**
- * Terminate an existing login session.
- *
- * @api public
- */
-req.logout =
-req.logOut = function() {
-  if (!this._passport) throw new Error('passport.initialize() middleware not in use');
-  
-  var property = this._passport.instance._userProperty || 'user';
-  
-  this[property] = null;
-  delete this._passport.session.user;
-};
-
-/**
- * Test if request is authenticated.
- *
- * @return {Boolean}
- * @api public
- */
-req.isAuthenticated = function() {
-  var property = 'user';
-  if (this._passport && this._passport.instance._userProperty) {
-    property = this._passport.instance._userProperty;
-  }
-  
-  return (this[property]) ? true : false;
-};
-
-/**
- * Test if request is unauthenticated.
- *
- * @return {Boolean}
- * @api public
- */
-req.isUnauthenticated = function() {
-  return !this.isAuthenticated();
-};
-
-},{"http":undefined}],42:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var fs = require('fs')
-  , path = require('path')
-  , util = require('util')
-  , Strategy = require('./strategy')
-  , SessionStrategy = require('./strategies/session')
-  , initialize = require('./middleware/initialize')
-  , authenticate = require('./middleware/authenticate');
-
-
-/**
- * `Passport` constructor.
- *
- * @api public
- */
-function Passport() {
-  this._key = 'passport';
-  this._strategies = {};
-  this._serializers = [];
-  this._deserializers = [];
-  this._infoTransformers = [];
-  this._framework = null;
-  
-  this._userProperty = 'user';
-  
-  this.use(new SessionStrategy());
-};
-
-/**
- * Utilize the given `strategy` with optional `name`, overridding the strategy's
- * default name.
- *
- * Examples:
- *
- *     passport.use(new TwitterStrategy(...));
- *
- *     passport.use('api', new http.BasicStrategy(...));
- *
- * @param {String|Strategy} name
- * @param {Strategy} strategy
- * @return {Passport} for chaining
- * @api public
- */
-Passport.prototype.use = function(name, strategy) {
-  if (!strategy) {
-    strategy = name;
-    name = strategy.name;
-  }
-  if (!name) throw new Error('authentication strategies must have a name');
-  
-  this._strategies[name] = strategy;
-  return this;
-};
-
-/**
- * Un-utilize the `strategy` with given `name`.
- *
- * In typical applications, the necessary authentication strategies are static,
- * configured once and always available.  As such, there is often no need to
- * invoke this function.
- *
- * However, in certain situations, applications may need dynamically configure
- * and de-configure authentication strategies.  The `use()`/`unuse()`
- * combination satisfies these scenarios.
- *
- * Examples:
- *
- *     passport.unuse('legacy-api');
- *
- * @param {String} name
- * @return {Passport} for chaining
- * @api public
- */
-Passport.prototype.unuse = function(name) {
-  delete this._strategies[name];
-  return this;
-}
-
-/**
- * Setup Passport to be used under framework.
- *
- * By default, Passport exposes middleware that operate using Connect-style
- * middleware using a `fn(req, res, next)` signature.  Other popular frameworks
- * have different expectations, and this function allows Passport to be adapted
- * to operate within such environments.
- *
- * If you are using a Connect-compatible framework, including Express, there is
- * no need to invoke this function.
- *
- * Examples:
- *
- *     passport.framework(require('hapi-passport')());
- *
- * @param {Object} name
- * @return {Passport} for chaining
- * @api public
- */
-Passport.prototype.framework = function(fw) {
-  this._framework = fw;
-  return this;
-}
-
-/**
- * Passport's primary initialization middleware.
- *
- * This middleware must be in use by the Connect/Express application for
- * Passport to operate.
- *
- * Options:
- *   - `userProperty`  Property to set on `req` upon login, defaults to _user_
- *
- * Examples:
- *
- *     app.configure(function() {
- *       app.use(passport.initialize());
- *     });
- *
- *     app.configure(function() {
- *       app.use(passport.initialize({ userProperty: 'currentUser' }));
- *     });
- *
- * @param {Object} options
- * @return {Function} middleware
- * @api public
- */
-Passport.prototype.initialize = function(options) {
-  options = options || {};
-  this._userProperty = options.userProperty || 'user';
-  
-  if (this._framework && this._framework.initialize) {
-    return this._framework.initialize().bind(this);
-  }
-  
-  return initialize().bind(this);
-}
-
-/**
- * Middleware that will restore login state from a session.
- *
- * Web applications typically use sessions to maintain login state between
- * requests.  For example, a user will authenticate by entering credentials into
- * a form which is submitted to the server.  If the credentials are valid, a
- * login session is established by setting a cookie containing a session
- * identifier in the user's web browser.  The web browser will send this cookie
- * in subsequent requests to the server, allowing a session to be maintained.
- *
- * If sessions are being utilized, and a login session has been established,
- * this middleware will populate `req.user` with the current user.
- *
- * Note that sessions are not strictly required for Passport to operate.
- * However, as a general rule, most web applications will make use of sessions.
- * An exception to this rule would be an API server, which expects each HTTP
- * request to provide credentials in an Authorization header.
- *
- * Examples:
- *
- *     app.configure(function() {
- *       app.use(connect.cookieParser());
- *       app.use(connect.session({ secret: 'keyboard cat' }));
- *       app.use(passport.initialize());
- *       app.use(passport.session());
- *     });
- *
- * Options:
- *   - `pauseStream`      Pause the request stream before deserializing the user
- *                        object from the session.  Defaults to _false_.  Should
- *                        be set to true in cases where middleware consuming the
- *                        request body is configured after passport and the
- *                        deserializeUser method is asynchronous.
- *
- * @param {Object} options
- * @return {Function} middleware
- * @api public
- */
-Passport.prototype.session = function(options) {
-  return this.authenticate('session', options);
-}
-
-/**
- * Middleware that will authenticate a request using the given `strategy` name,
- * with optional `options` and `callback`.
- *
- * Examples:
- *
- *     passport.authenticate('local', { successRedirect: '/', failureRedirect: '/login' })(req, res);
- *
- *     passport.authenticate('local', function(err, user) {
- *       if (!user) { return res.redirect('/login'); }
- *       res.end('Authenticated!');
- *     })(req, res);
- *
- *     passport.authenticate('basic', { session: false })(req, res);
- *
- *     app.get('/auth/twitter', passport.authenticate('twitter'), function(req, res) {
- *       // request will be redirected to Twitter
- *     });
- *     app.get('/auth/twitter/callback', passport.authenticate('twitter'), function(req, res) {
- *       res.json(req.user);
- *     });
- *
- * @param {String} strategy
- * @param {Object} options
- * @param {Function} callback
- * @return {Function} middleware
- * @api public
- */
-Passport.prototype.authenticate = function(strategy, options, callback) {
-  if (this._framework && this._framework.authenticate) {
-    return this._framework.authenticate(strategy, options, callback).bind(this);
-  }
-  
-  return authenticate(strategy, options, callback).bind(this);
-}
-
-/**
- * Middleware that will authorize a third-party account using the given
- * `strategy` name, with optional `options`.
- *
- * If authorization is successful, the result provided by the strategy's verify
- * callback will be assigned to `req.account`.  The existing login session and
- * `req.user` will be unaffected.
- *
- * This function is particularly useful when connecting third-party accounts
- * to the local account of a user that is currently authenticated.
- *
- * Examples:
- *
- *    passport.authorize('twitter-authz', { failureRedirect: '/account' });
- *
- * @param {String} strategy
- * @param {Object} options
- * @return {Function} middleware
- * @api public
- */
-Passport.prototype.authorize = function(strategy, options, callback) {
-  var fwAuthorize = this._framework && (this._framework.authorize || this._framework.authenticate);
-
-  options = options || {};
-  options.assignProperty = 'account';
-
-  if (fwAuthorize) {
-    return fwAuthorize(strategy, options, callback).bind(this);
-  }
-  
-  return authenticate(strategy, options, callback).bind(this);
-}
-
-/**
- * Registers a function used to serialize user objects into the session.
- *
- * Examples:
- *
- *     passport.serializeUser(function(user, done) {
- *       done(null, user.id);
- *     });
- *
- * @api public
- */
-Passport.prototype.serializeUser = function(fn, done) {
-  if (typeof fn === 'function') {
-    return this._serializers.push(fn);
-  }
-  
-  // private implementation that traverses the chain of serializers, attempting
-  // to serialize a user
-  var user = fn;
-  
-  var stack = this._serializers;
-  (function pass(i, err, obj) {
-    // serializers use 'pass' as an error to skip processing
-    if ('pass' === err) {
-      err = undefined;
-    }
-    // an error or serialized object was obtained, done
-    if (err || obj || obj === 0) { return done(err, obj); }
-    
-    var layer = stack[i];
-    if (!layer) {
-      return done(new Error('failed to serialize user into session'));
-    }
-    
-    try {
-      layer(user, function(e, o) { pass(i + 1, e, o); } )
-    } catch(e) {
-      return done(e);
-    }
-  })(0);
-}
-
-/**
- * Registers a function used to deserialize user objects out of the session.
- *
- * Examples:
- *
- *     passport.deserializeUser(function(id, done) {
- *       User.findById(id, function (err, user) {
- *         done(err, user);
- *       });
- *     });
- *
- * @api public
- */
-Passport.prototype.deserializeUser = function(fn, done) {
-  if (typeof fn === 'function') {
-    return this._deserializers.push(fn);
-  }
-  
-  // private implementation that traverses the chain of deserializers,
-  // attempting to deserialize a user
-  var obj = fn;
-  
-  var stack = this._deserializers;
-  (function pass(i, err, user) {
-    // deserializers use 'pass' as an error to skip processing
-    if ('pass' === err) {
-      err = undefined;
-    }
-    // an error or deserialized user was obtained, done
-    if (err || user) { return done(err, user); }
-    // a valid user existed when establishing the session, but that user has
-    // since been removed
-    if (user === null || user === false) { return done(null, false); }
-    
-    var layer = stack[i];
-    if (!layer) {
-      return done(new Error('failed to deserialize user out of session'));
-    }
-    
-    try {
-      layer(obj, function(e, u) { pass(i + 1, e, u); } )
-    } catch(e) {
-      return done(e);
-    }
-  })(0);
-}
-
-/**
- * Registers a function used to transform auth info.
- *
- * In some circumstances authorization details are contained in authentication
- * credentials or loaded as part of verification.
- *
- * For example, when using bearer tokens for API authentication, the tokens may
- * encode (either directly or indirectly in a database), details such as scope
- * of access or the client to which the token was issued.
- *
- * Such authorization details should be enforced separately from authentication.
- * Because Passport deals only with the latter, this is the responsiblity of
- * middleware or routes further along the chain.  However, it is not optimal to
- * decode the same data or execute the same database query later.  To avoid
- * this, Passport accepts optional `info` along with the authenticated `user`
- * in a strategy's `success()` action.  This info is set at `req.authInfo`,
- * where said later middlware or routes can access it.
- *
- * Optionally, applications can register transforms to proccess this info,
- * which take effect prior to `req.authInfo` being set.  This is useful, for
- * example, when the info contains a client ID.  The transform can load the
- * client from the database and include the instance in the transformed info,
- * allowing the full set of client properties to be convieniently accessed.
- *
- * If no transforms are registered, `info` supplied by the strategy will be left
- * unmodified.
- *
- * Examples:
- *
- *     passport.transformAuthInfo(function(info, done) {
- *       Client.findById(info.clientID, function (err, client) {
- *         info.client = client;
- *         done(err, info);
- *       });
- *     });
- *
- * @api public
- */
-Passport.prototype.transformAuthInfo = function(fn, done) {
-  if (typeof fn === 'function') {
-    return this._infoTransformers.push(fn);
-  }
-  
-  // private implementation that traverses the chain of transformers,
-  // attempting to transform auth info
-  var info = fn;
-  
-  var stack = this._infoTransformers;
-  (function pass(i, err, tinfo) {
-    // transformers use 'pass' as an error to skip processing
-    if ('pass' === err) {
-      err = undefined;
-    }
-    // an error or transformed info was obtained, done
-    if (err || tinfo) { return done(err, tinfo); }
-    
-    var layer = stack[i];
-    if (!layer) {
-      // if no transformers are registered (or they all pass), the default
-      // behavior is to use the un-transformed info as-is
-      return done(null, info);
-    }
-    
-    try {
-      var arity = layer.length;
-      if (arity == 1) {
-        // sync
-        var t = layer(info);
-        pass(i + 1, null, t);
-      } else {
-        // async
-        layer(info, function(e, t) { pass(i + 1, e, t); } )
-      }
-    } catch(e) {
-      return done(e);
-    }
-  })(0);
-}
-
-/**
- * Return strategy with given `name`. 
- *
- * @param {String} name
- * @return {Strategy}
- * @api private
- */
-Passport.prototype._strategy = function(name) {
-  return this._strategies[name];
-}
-
-
-/**
- * Export default singleton.
- *
- * @api public
- */
-exports = module.exports = new Passport();
-
-/**
- * Framework version.
- */
-// removed pkginfo ...')(module, 'version');
-
-/**
- * Expose constructors.
- */
-exports.Passport = Passport;
-exports.Strategy = Strategy;
-
-
-/**
- * Expose strategies.
- */
-exports.strategies = {};
-exports.strategies.SessionStrategy = SessionStrategy;
-
-
-/**
- * HTTP extensions.
- */
-require('./http/request');
-},{"./http/request":41,"./middleware/authenticate":43,"./middleware/initialize":44,"./strategies/session":45,"./strategy":46,"fs":undefined,"path":undefined,"pkginfo":62,"util":undefined}],43:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var util = require('util')
-  , actions = require('../context/http/actions')
-  , Context = require('../context/http/context')
-
-
-/**
- * Authenticates requests.
- *
- * Applies the `name`ed strategy (or strategies) to the incoming request, in
- * order to authenticate the request.  If authentication is successful, the user
- * will be logged in and populated at `req.user` and a session will be
- * established by default.  If authentication fails, an unauthorized response
- * will be sent.
- *
- * Options:
- *   - `session`          Save login state in session, defaults to _true_
- *   - `successRedirect`  After successful login, redirect to given URL
- *   - `failureRedirect`  After failed login, redirect to given URL
- *   - `assignProperty`   Assign the object provided by the verify callback to given property
- *
- * An optional `callback` can be supplied to allow the application to overrride
- * the default manner in which authentication attempts are handled.  The
- * callback has the following signature, where `user` will be set to the
- * authenticated user on a successful authentication attempt, or `false`
- * otherwise.  An optional `info` argument will be passed, containing additional
- * details provided by the strategy's verify callback.
- *
- *     app.get('/protected', function(req, res, next) {
- *       passport.authenticate('local', function(err, user, info) {
- *         if (err) { return next(err) }
- *         if (!user) { return res.redirect('/signin') }
- *         res.redirect('/account');
- *       })(req, res, next);
- *     });
- *
- * Note that if a callback is supplied, it becomes the application's
- * responsibility to log-in the user, establish a session, and otherwise perform
- * the desired operations.
- *
- * Examples:
- *
- *     passport.authenticate('local', { successRedirect: '/', failureRedirect: '/login' });
- *
- *     passport.authenticate('basic', { session: false });
- *
- *     passport.authenticate('twitter');
- *
- * @param {String} name
- * @param {Object} options
- * @param {Function} callback
- * @return {Function}
- * @api public
- */
-module.exports = function authenticate(name, options, callback) {
-  if (!callback && typeof options === 'function') {
-    callback = options;
-    options = {};
-  }
-  options = options || {};
-  
-  // Cast `name` to an array, allowing authentication to pass through a chain of
-  // strategies.  The first strategy to succeed, redirect, or error will halt
-  // the chain.  Authentication failures will proceed through each strategy in
-  // series, ultimately failing if all strategies fail.
-  //
-  // This is typically used on API endpoints to allow clients to authenticate
-  // using their preferred choice of Basic, Digest, token-based schemes, etc.
-  // It is not feasible to construct a chain of multiple strategies that involve
-  // redirection (for example both Facebook and Twitter), since the first one to
-  // redirect will halt the chain.
-  if (!Array.isArray(name)) {
-    name = [ name ];
-  }
-  
-  return function authenticate(req, res, next) {
-    var passport = this;
-    
-    // accumulator for failures from each strategy in the chain
-    var failures = [];
-    
-    function allFailed() {
-      if (callback) {
-        if (failures.length == 1) {
-          return callback(null, false, failures[0].challenge, failures[0].status);
-        } else {
-          var challenges = failures.map(function(f) { return f.challenge; });
-          var statuses = failures.map(function(f) { return f.status; })
-          return callback(null, false, challenges, statuses);
-        }
-      }
-      
-      // Strategies are ordered by priority.  For the purpose of flashing a
-      // message, the first failure will be displayed.
-      var failure = failures[0] || {}
-        , challenge = failure.challenge || {};
-    
-      if (options.failureFlash) {
-        var flash = options.failureFlash;
-        if (typeof flash == 'string') {
-          flash = { type: 'error', message: flash };
-        }
-        flash.type = flash.type || 'error';
-      
-        var type = flash.type || challenge.type || 'error';
-        var msg = flash.message || challenge.message || challenge;
-        if (typeof msg == 'string') {
-          req.flash(type, msg);
-        }
-      }
-      if (options.failureMessage) {
-        var msg = options.failureMessage;
-        if (typeof msg == 'boolean') {
-          msg = challenge.message || challenge;
-        }
-        if (typeof msg == 'string') {
-          req.session.messages = req.session.messages || [];
-          req.session.messages.push(msg);
-        }
-      }
-      if (options.failureRedirect) {
-        return res.redirect(options.failureRedirect);
-      }
-    
-      // When failure handling is not delegated to the application, the default
-      // is to respond with 401 Unauthorized.  Note that the WWW-Authenticate
-      // header will be set according to the strategies in use (see
-      // actions#fail).  If multiple strategies failed, each of their challenges
-      // will be included in the response.
-      var rchallenge = []
-        , rstatus;
-      
-      for (var j = 0, len = failures.length; j < len; j++) {
-        var failure = failures[j]
-          , challenge = failure.challenge || {}
-          , status = failure.status;
-        if (typeof challenge == 'number') {
-          status = challenge;
-          challenge = null;
-        }
-          
-        rstatus = rstatus || status;
-        if (typeof challenge == 'string') {
-          rchallenge.push(challenge)
-        }
-      }
-    
-      res.statusCode = rstatus || 401;
-      if (rchallenge.length) {
-        res.setHeader('WWW-Authenticate', rchallenge);
-      }
-      res.end('Unauthorized');
-    }
-    
-    (function attempt(i) {
-      var delegate = {};
-      delegate.success = function(user, info) {
-        if (callback) {
-          return callback(null, user, info);
-        }
-      
-        info = info || {}
-      
-        if (options.successFlash) {
-          var flash = options.successFlash;
-          if (typeof flash == 'string') {
-            flash = { type: 'success', message: flash };
-          }
-          flash.type = flash.type || 'success';
-        
-          var type = flash.type || info.type || 'success';
-          var msg = flash.message || info.message || info;
-          if (typeof msg == 'string') {
-            req.flash(type, msg);
-          }
-        }
-        if (options.successMessage) {
-          var msg = options.successMessage;
-          if (typeof msg == 'boolean') {
-            msg = info.message || info;
-          }
-          if (typeof msg == 'string') {
-            req.session.messages = req.session.messages || [];
-            req.session.messages.push(msg);
-          }
-        }
-        if (options.assignProperty) {
-          req[options.assignProperty] = user;
-          return next();
-        }
-      
-        req.logIn(user, options, function(err) {
-          if (err) { return next(err); }
-          if (options.authInfo || options.authInfo === undefined) {
-            passport.transformAuthInfo(info, function(err, tinfo) {
-              if (err) { return next(err); }
-              req.authInfo = tinfo;
-              complete();
-            });
-          } else {
-            complete();
-          }
-        
-          function complete() {
-            if (options.successReturnToOrRedirect) {
-              var url = options.successReturnToOrRedirect;
-              if (req.session && req.session.returnTo) {
-                url = req.session.returnTo;
-                delete req.session.returnTo;
-              }
-              return res.redirect(url);
-            }
-            if (options.successRedirect) {
-              return res.redirect(options.successRedirect);
-            }
-            next();
-          }
-        });
-      }
-      delegate.fail = function(challenge, status) {
-        // push this failure into the accumulator and attempt authentication
-        // using the next strategy
-        failures.push({ challenge: challenge, status: status });
-        attempt(i + 1);
-      }
-    
-      var layer = name[i];
-      // If no more strategies exist in the chain, authentication has failed.
-      if (!layer) { return allFailed(); }
-    
-      // Get the strategy, which will be used as prototype from which to create
-      // a new instance.  Action functions will then be bound to the strategy
-      // within the context of the HTTP request/response pair.
-      var prototype = passport._strategy(layer);
-      if (!prototype) { return next(new Error('no strategy registered under name: ' + layer)); }
-    
-      var strategy = Object.create(prototype);
-      var context = new Context(delegate, req, res, next);
-      augment(strategy, actions, context);
-    
-      strategy.authenticate(req, options);
-    })(0); // attempt
-  }
-}
-
-
-function augment(strategy, actions, ctx) {
-  for (var method in actions) {
-    strategy[method] = actions[method].bind(ctx);
-  }
-}
-
-},{"../context/http/actions":39,"../context/http/context":40,"util":undefined}],44:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var util = require('util');
-
-
-/**
- * Passport initialization.
- *
- * Intializes Passport for incoming requests, allowing authentication strategies
- * to be applied.
- *
- * If sessions are being utilized, applications must set up Passport with
- * functions to serialize a user into and out of a session.  For example, a
- * common pattern is to serialize just the user ID into the session (due to the
- * fact that it is desirable to store the minimum amount of data in a session).
- * When a subsequent request arrives for the session, the full User object can
- * be loaded from the database by ID.
- *
- * Note that additional middleware is required to persist login state, so we
- * must use the `connect.session()` middleware _before_ `passport.initialize()`.
- *
- * This middleware must be in use by the Connect/Express application for
- * Passport to operate.
- *
- * Examples:
- *
- *     app.configure(function() {
- *       app.use(connect.cookieParser());
- *       app.use(connect.session({ secret: 'keyboard cat' }));
- *       app.use(passport.initialize());
- *       app.use(passport.session());
- *     });
- *
- *     passport.serializeUser(function(user, done) {
- *       done(null, user.id);
- *     });
- *
- *     passport.deserializeUser(function(id, done) {
- *       User.findById(id, function (err, user) {
- *         done(err, user);
- *       });
- *     });
- *
- * @return {Function}
- * @api public
- */
-module.exports = function initialize() {
-  
-  return function initialize(req, res, next) {
-    var passport = this;
-    req._passport = {};
-    req._passport.instance = passport;
-
-    //console.log('!! session: ' + util.inspect(req.session));
-    
-    if (req.session && req.session[passport._key]) {
-      // load data from existing session
-      req._passport.session = req.session[passport._key];
-    } else if (req.session) {
-      // initialize new session
-      req.session[passport._key] = {};
-      req._passport.session = req.session[passport._key];
-    } else {
-      // no session is available
-      req._passport.session = {};
-    }
-    
-    next();
-  }
-}
-
-},{"util":undefined}],45:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var pause = require('pause')
-  , util = require('util')
-  , Strategy = require('../strategy');
-
-
-/**
- * `SessionStrategy` constructor.
- *
- * @api protected
- */
-function SessionStrategy() {
-  Strategy.call(this);
-  this.name = 'session';
-}
-
-/**
- * Inherit from `Strategy`.
- */
-util.inherits(SessionStrategy, Strategy);
-
-/**
- * Authenticate request based on the current session state.
- *
- * The session authentication strategy uses the session to restore any login
- * state across requests.  If a login session has been established, `req.user`
- * will be populated with the current user.
- *
- * This strategy is registered automatically by Passport.
- *
- * @param {Object} req
- * @param {Object} options
- * @api protected
- */
-SessionStrategy.prototype.authenticate = function(req, options) {
-  if (!req._passport) { return this.error(new Error('passport.initialize() middleware not in use')); }
-  options = options || {};
-
-  var self = this
-    , su = req._passport.session.user;
-  if (su || su === 0) {
-    // NOTE: Stream pausing is desirable in the case where later middleware is
-    //       listening for events emitted from request.  For discussion on the
-    //       matter, refer to: https://github.com/jaredhanson/passport/pull/106
-    
-    var paused = options.pauseStream ? pause(req) : null;
-    req._passport.instance.deserializeUser(su, function(err, user) {
-      if (err) { return self.error(err); }
-      if (!user) {
-        delete req._passport.session.user;
-        self.pass();
-        if (paused) {
-          paused.resume();
-        }
-        return;
-      };
-      var property = req._passport.instance._userProperty || 'user';
-      req[property] = user;
-      self.pass();
-      if (paused) {
-        paused.resume();
-      }
-    });
-  } else {
-    self.pass();
-  }
-}
-
-
-/**
- * Expose `SessionStrategy`.
- */ 
-module.exports = SessionStrategy;
-
-},{"../strategy":46,"pause":61,"util":undefined}],46:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-var util = require('util');
-
-
-/**
- * `Strategy` constructor.
- *
- * @api public
- */
-function Strategy() {
-}
-
-/**
- * Authenticate request.
- *
- * This function must be overridden by subclasses.  In abstract form, it always
- * throws an exception.
- *
- * @param {Object} req
- * @param {Object} options
- * @api protected
- */
-Strategy.prototype.authenticate = function(req, options) {
-  throw new Error('Strategy#authenticate must be overridden by subclass');
-}
-
-
-/**
- * Expose `Strategy`.
- */
-module.exports = Strategy;
-
-},{"util":undefined}],47:[function(require,module,exports){
+},{"dup":26,"utils-merge":51}],35:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -6763,7 +3336,7 @@ exports = module.exports = Strategy;
  */
 exports.Strategy = Strategy;
 
-},{"./strategy":48}],48:[function(require,module,exports){
+},{"./strategy":36}],36:[function(require,module,exports){
 /**
  * Creates an instance of `Strategy`.
  *
@@ -6793,7 +3366,7 @@ Strategy.prototype.authenticate = function(req, options) {
  */
 module.exports = Strategy;
 
-},{}],49:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 /**
  * `APIError` error.
  *
@@ -6821,9 +3394,9 @@ APIError.prototype.__proto__ = Error.prototype;
 // Expose constructor.
 module.exports = APIError;
 
-},{}],50:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"./strategy":52,"dup":13}],51:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"./strategy":40,"dup":9}],39:[function(require,module,exports){
 /**
  * Parse profile.
  *
@@ -6849,7 +3422,7 @@ exports.parse = function(json) {
   return profile;
 };
 
-},{}],52:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 // Load modules.
 var OAuthStrategy = require('passport-oauth1')
   , util = require('util')
@@ -7063,7 +3636,7 @@ Strategy.prototype.parseErrorResponse = function(body, status) {
 // Expose constructor.
 module.exports = Strategy;
 
-},{"./errors/apierror":49,"./profile":51,"passport-oauth1":23,"url":undefined,"util":undefined,"xtraverse":69}],53:[function(require,module,exports){
+},{"./errors/apierror":37,"./profile":39,"passport-oauth1":23,"url":undefined,"util":undefined,"xtraverse":56}],41:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7526,7 +4099,7 @@ Authenticator.prototype._strategy = function(name) {
  */
 module.exports = Authenticator;
 
-},{"./framework/connect":55,"./strategies/session":60}],54:[function(require,module,exports){
+},{"./framework/connect":43,"./strategies/session":48}],42:[function(require,module,exports){
 /**
  * `AuthenticationError` error.
  *
@@ -7551,7 +4124,7 @@ AuthenticationError.prototype.__proto__ = Error.prototype;
  */
 module.exports = AuthenticationError;
 
-},{}],55:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7592,7 +4165,7 @@ exports.__monkeypatchNode = function() {
   http.IncomingMessage.prototype.isUnauthenticated = IncomingMessageExt.isUnauthenticated;
 };
 
-},{"../http/request":56,"../middleware/authenticate":58,"../middleware/initialize":59,"http":undefined}],56:[function(require,module,exports){
+},{"../http/request":44,"../middleware/authenticate":46,"../middleware/initialize":47,"http":undefined}],44:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7702,7 +4275,7 @@ req.isUnauthenticated = function() {
   return !this.isAuthenticated();
 };
 
-},{}],57:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7730,7 +4303,7 @@ exports.Strategy = require('passport-strategy');
 exports.strategies = {};
 exports.strategies.SessionStrategy = SessionStrategy;
 
-},{"./authenticator":53,"./strategies/session":60,"passport-strategy":47}],58:[function(require,module,exports){
+},{"./authenticator":41,"./strategies/session":48,"passport-strategy":35}],46:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -8083,7 +4656,7 @@ module.exports = function authenticate(passport, name, options, callback) {
   };
 };
 
-},{"../errors/authenticationerror":54,"../framework/connect":55,"../http/request":56,"http":undefined}],59:[function(require,module,exports){
+},{"../errors/authenticationerror":42,"../framework/connect":43,"../http/request":44,"http":undefined}],47:[function(require,module,exports){
 /**
  * Passport initialization.
  *
@@ -8140,7 +4713,7 @@ module.exports = function initialize(passport) {
   };
 };
 
-},{}],60:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -8221,7 +4794,7 @@ SessionStrategy.prototype.authenticate = function(req, options) {
  */
 module.exports = SessionStrategy;
 
-},{"passport-strategy":47,"pause":61,"util":undefined}],61:[function(require,module,exports){
+},{"passport-strategy":35,"pause":49,"util":undefined}],49:[function(require,module,exports){
 
 module.exports = function(obj){
   var onData
@@ -8251,142 +4824,7 @@ module.exports = function(obj){
     }
   };
 };
-},{}],62:[function(require,module,exports){
-(function (__dirname){
-/*
- * pkginfo.js: Top-level include for the pkginfo module
- *
- * (C) 2011, Charlie Robbins
- *
- */
- 
-var fs = require('fs'),
-    path = require('path');
-
-//
-// ### function pkginfo ([options, 'property', 'property' ..])
-// #### @pmodule {Module} Parent module to read from.
-// #### @options {Object|Array|string} **Optional** Options used when exposing properties.
-// #### @arguments {string...} **Optional** Specified properties to expose.
-// Exposes properties from the package.json file for the parent module on 
-// it's exports. Valid usage:
-//
-// `require('pkginfo')()`
-//
-// `require('pkginfo')('version', 'author');`
-//
-// `require('pkginfo')(['version', 'author']);`
-//
-// `require('pkginfo')({ include: ['version', 'author'] });`
-//
-var pkginfo = module.exports = function (pmodule, options) {
-  var args = [].slice.call(arguments, 2).filter(function (arg) {
-    return typeof arg === 'string';
-  });
-  
-  //
-  // **Parse variable arguments**
-  //
-  if (Array.isArray(options)) {
-    //
-    // If the options passed in is an Array assume that
-    // it is the Array of properties to expose from the
-    // on the package.json file on the parent module.
-    //
-    options = { include: options };
-  }
-  else if (typeof options === 'string') {
-    //
-    // Otherwise if the first argument is a string, then
-    // assume that it is the first property to expose from
-    // the package.json file on the parent module.
-    //
-    options = { include: [options] };
-  }
-  
-  //
-  // **Setup default options**
-  //
-  options = options || { include: [] };
-  
-  if (args.length > 0) {
-    //
-    // If additional string arguments have been passed in
-    // then add them to the properties to expose on the 
-    // parent module. 
-    //
-    options.include = options.include.concat(args);
-  }
-  
-  var pkg = pkginfo.read(pmodule, options.dir).package;
-  Object.keys(pkg).forEach(function (key) {
-    if (options.include.length > 0 && !~options.include.indexOf(key)) {
-      return;
-    }
-    
-    if (!pmodule.exports[key]) {
-      pmodule.exports[key] = pkg[key];
-    }
-  });
-  
-  return pkginfo;
-};
-
-//
-// ### function find (dir)
-// #### @pmodule {Module} Parent module to read from.
-// #### @dir {string} **Optional** Directory to start search from.
-// Searches up the directory tree from `dir` until it finds a directory
-// which contains a `package.json` file. 
-//
-pkginfo.find = function (pmodule, dir) {
-  dir = dir || pmodule.filename;
-  dir = path.dirname(dir); 
-  
-  var files = fs.readdirSync(dir);
-  
-  if (~files.indexOf('package.json')) {
-    return path.join(dir, 'package.json');
-  }
-  
-  if (dir === '/') {
-    throw new Error('Could not find package.json up from: ' + dir);
-  }
-  else if (!dir || dir === '.') {
-    throw new Error('Cannot find package.json from unspecified directory');
-  }
-  
-  return pkginfo.find(pmodule, dir);
-};
-
-//
-// ### function read (pmodule, dir)
-// #### @pmodule {Module} Parent module to read from.
-// #### @dir {string} **Optional** Directory to start search from.
-// Searches up the directory tree from `dir` until it finds a directory
-// which contains a `package.json` file and returns the package information.
-//
-pkginfo.read = function (pmodule, dir) { 
-  dir = pkginfo.find(pmodule, dir);
-  
-  var data = fs.readFileSync(dir).toString();
-      
-  return {
-    dir: dir, 
-    package: JSON.parse(data)
-  };
-};
-
-//
-// Call `pkginfo` on this module and expose version.
-//
-pkginfo(module, {
-  dir: __dirname,
-  include: ['version'],
-  target: pkginfo
-});
-}).call(this,"/Users/ddascal/Projects/bladerunner/experimental-openwhisk-passport-auth/node_modules/pkginfo/lib")
-},{"fs":undefined,"path":undefined}],63:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 /**
  * Module dependencies
  */
@@ -8443,7 +4881,7 @@ function uid(length, cb) {
 
 module.exports = uid;
 
-},{"crypto":undefined}],64:[function(require,module,exports){
+},{"crypto":undefined}],51:[function(require,module,exports){
 /**
  * Merge object b with object a.
  *
@@ -8468,7 +4906,7 @@ exports = module.exports = function(a, b){
   return a;
 };
 
-},{}],65:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 function DOMParser(options){
 	this.options = options ||{locator:{}};
 	
@@ -8721,7 +5159,7 @@ function appendElement (hander,node) {
 	exports.DOMParser = DOMParser;
 //}
 
-},{"./dom":66,"./sax":67}],66:[function(require,module,exports){
+},{"./dom":53,"./sax":54}],53:[function(require,module,exports){
 /*
  * DOM Level 2
  * Object DOMException
@@ -9967,7 +6405,7 @@ try{
 	exports.XMLSerializer = XMLSerializer;
 //}
 
-},{}],67:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 //[4]   	NameStartChar	   ::=   	":" | [A-Z] | "_" | [a-z] | [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] | [#x370-#x37D] | [#x37F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
 //[4a]   	NameChar	   ::=   	NameStartChar | "-" | "." | [0-9] | #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
 //[5]   	Name	   ::=   	NameStartChar (NameChar)*
@@ -10602,7 +7040,7 @@ function split(source,start){
 exports.XMLReader = XMLReader;
 
 
-},{}],68:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -11238,7 +7676,7 @@ exports = module.exports = Collection;
  */
 exports.wrap = wrap;
 
-},{"xmldom":65}],69:[function(require,module,exports){
+},{"xmldom":52}],56:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -11249,7 +7687,7 @@ var Collection = require('./collection');
  */
 module.exports = Collection.wrap;
 
-},{"./collection":68}],"main-action":[function(require,module,exports){
+},{"./collection":55}],"main-action":[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -11272,9 +7710,9 @@ var _passportTwitter = require('passport-twitter');
 
 var _passportTwitter2 = _interopRequireDefault(_passportTwitter);
 
-var _passportGoogle = require('passport-google');
+var _passportGoogleOauth = require('passport-google-oauth20');
 
-var _passportGoogle2 = _interopRequireDefault(_passportGoogle);
+var _passportGoogleOauth2 = _interopRequireDefault(_passportGoogleOauth);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -11369,7 +7807,7 @@ function _authenticate(params) {
             scopes = scopes.split(",");
         }
 
-        var res = _passport2.default.authenticate(params.auth_provider, {
+        var res = _passport2.default.authenticate(params.auth_provider_name || params.auth_provider, {
             scope: scopes,
             successRedirect: '/success', // TODO: TBD should this be read from parameters ?
             failureRedirect: '/login' // TODO: TBD should this be read from parameters ?
@@ -11391,5 +7829,5 @@ function main(params) {
 
 exports.default = main;
 
-},{"passport":57,"passport-facebook":13,"passport-github":17,"passport-google":20,"passport-twitter":50}]},{},[]);
+},{"passport":45,"passport-facebook":9,"passport-github":13,"passport-google-oauth20":18,"passport-twitter":38}]},{},[]);
 var main = require('main-action').default;

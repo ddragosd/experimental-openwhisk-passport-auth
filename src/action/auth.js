@@ -2,7 +2,7 @@ import passport from 'passport'
 import passport_github from 'passport-github'
 import passport_facebook from 'passport-facebook'
 import passport_twitter  from 'passport-twitter'
-import passport_google from 'passport-google'
+import passport_google from 'passport-google-oauth20'
 
 function _authenticate(params) {
     return new Promise((resolve, reject) => {
@@ -98,7 +98,7 @@ function _authenticate(params) {
             scopes = scopes.split(",");
         }
 
-        let res = passport.authenticate(params.auth_provider, {
+        let res = passport.authenticate(params.auth_provider_name || params.auth_provider, {
             scope: scopes,
             successRedirect: '/success',  // TODO: TBD should this be read from parameters ?
             failureRedirect: '/login'     // TODO: TBD should this be read from parameters ?
