@@ -5,6 +5,8 @@ The scope of this action is to authenticate users, returning an Access Token, a 
 The output of this action should be cached, encrypted with Openwhisk's namespace credentials or other means; 
 actions belonging to the same package should be able to access this cache, retrieve a valid token, in order to be able to execute actions on behalf of the users.  
 
+<img src="./docs/auth-demo.gif" alt="Demo" width="500px"/>
+
 ## Quick start
 
 1. Run `npm install`
