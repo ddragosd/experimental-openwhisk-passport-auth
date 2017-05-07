@@ -7687,16 +7687,108 @@ var Collection = require('./collection');
  */
 module.exports = Collection.wrap;
 
-},{"./collection":55}],"main-action":[function(require,module,exports){
+},{"./collection":55}],57:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _passport = require('passport');
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _passport2 = _interopRequireDefault(_passport);
+var _factory = require('./factory');
+
+var _factory2 = _interopRequireDefault(_factory);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/***
+ * Builds a new Strategy for Passport
+ */
+var StrategyBuilder = function () {
+    function StrategyBuilder() {
+        _classCallCheck(this, StrategyBuilder);
+    }
+
+    _createClass(StrategyBuilder, [{
+        key: 'withProvider',
+        value: function withProvider(auth_provider) {
+            this.auth_provider = auth_provider;
+            return this;
+        }
+    }, {
+        key: 'withCredentials',
+        value: function withCredentials(client_id, client_secret) {
+            this.client_id = client_id;
+            this.client_secret = client_secret;
+            return this;
+        }
+    }, {
+        key: 'withCallbackURL',
+        value: function withCallbackURL(callback_url) {
+            this.callback_url = callback_url;
+            return this;
+        }
+    }, {
+        key: 'withVerifyer',
+        value: function withVerifyer(fn) {
+            this.verifyer = fn;
+            return this;
+        }
+    }, {
+        key: 'getError',
+        value: function getError() {
+            return this.error;
+        }
+    }, {
+        key: 'buildStrategy',
+        value: function buildStrategy() {
+            var strategy_impl = _factory2.default.getStrategy(this.auth_provider);
+            if (strategy_impl instanceof Error) {
+                this.error = strategy_impl;
+                return null;
+            }
+            var strategy = new strategy_impl({
+                clientID: this.client_id,
+                consumerKey: this.client_id,
+                clientSecret: this.client_secret,
+                consumerSecret: this.client_secret,
+                callbackURL: this.callback_url
+            }, this.verifyer);
+
+            if (strategy._requestTokenStore) {
+                // OAuth 1 requires a session
+                strategy._requestTokenStore.get = function (req, token, cb) {
+                    // NOTE: The oauth_verifier parameter will be supplied in the query portion
+                    //       of the redirect URL, if the server supports OAuth 1.0a.
+                    var oauth_verifier = req.query.oauth_verifier || null;
+                    return cb(null, oauth_verifier);
+                };
+
+                strategy._requestTokenStore.destroy = function (req, token, cb) {
+                    // simply invoke the callback directly
+                    cb();
+                };
+            }
+            return strategy;
+        }
+    }]);
+
+    return StrategyBuilder;
+}();
+
+exports.default = StrategyBuilder;
+
+},{"./factory":58}],58:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _passportGithub = require('passport-github');
 
@@ -7716,30 +7808,66 @@ var _passportGoogleOauth2 = _interopRequireDefault(_passportGoogleOauth);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/**
+ * Factory class to create the Passport Strategy corresponding to a given authentication provider.
+ */
+var StrategyFactory = function () {
+    function StrategyFactory() {
+        _classCallCheck(this, StrategyFactory);
+    }
+
+    _createClass(StrategyFactory, null, [{
+        key: 'getStrategy',
+
+
+        /**
+         * Returns the instance of the Strategy or an Error object, if the Strategy couldn't be created
+         * @param auth_provider the name of the authentication provider
+         */
+        value: function getStrategy(auth_provider) {
+            var passport_module_name = 'passport-' + auth_provider;
+            var strategy_impl = null;
+
+            try {
+                strategy_impl = require(passport_module_name).Strategy;
+            } catch (err) {
+                console.error(err);
+                return err;
+            }
+
+            return strategy_impl;
+        }
+    }]);
+
+    return StrategyFactory;
+}();
+
+exports.default = StrategyFactory;
+
+},{"passport-facebook":9,"passport-github":13,"passport-google-oauth20":18,"passport-twitter":38}],"main-action":[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _passport = require('passport');
+
+var _passport2 = _interopRequireDefault(_passport);
+
+var _builder = require('./strategy/builder');
+
+var _builder2 = _interopRequireDefault(_builder);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 function _authenticate(params) {
     return new Promise(function (resolve, reject) {
 
-        var passport_module_name = 'passport-' + params.auth_provider;
-
-        var strategy_impl = null;
-
-        try {
-            strategy_impl = require(passport_module_name).Strategy;
-        } catch (err) {
-            console.log(err);
-            reject({
-                "message": "Could not load " + passport_module_name,
-                "error": err.toString()
-            });
-        }
-
-        var strategy = new strategy_impl({
-            clientID: params.client_id,
-            consumerKey: params.client_id,
-            clientSecret: params.client_secret,
-            consumerSecret: params.client_secret,
-            callbackURL: params.callback_url
-        }, function (accessToken, refreshToken, profile, done) {
+        //build a strategy for Passport based on params
+        var builder = new _builder2.default().withProvider(params.auth_provider).withCredentials(params.client_id, params.client_secret).withCallbackURL(params.callback_url).withVerifyer(function (accessToken, refreshToken, profile, done) {
             console.log("Logged in successfully ... ");
             response.body = {
                 "token": accessToken,
@@ -7750,27 +7878,22 @@ function _authenticate(params) {
             resolve(get_action_response(response));
         });
 
-        // a lightweight request object to be used in the serverless context
+        var strategy = builder.buildStrategy();
+
+        if (strategy === null) {
+            reject({
+                "message": "Could not load " + params.auth_provider,
+                "error": builder.getError().toString()
+            });
+        }
+
+        // create a lightweight request object to be used in the serverless context
         var request = {
             query: params, // expose query parameters
             session: strategy._requestTokenStore || strategy._stateStore // inherit the session from Passport
         };
 
-        if (strategy._requestTokenStore) {
-            // OAuth 1 requires a session
-            strategy._requestTokenStore.get = function (req, token, cb) {
-                // NOTE: The oauth_verifier parameter will be supplied in the query portion
-                //       of the redirect URL, if the server supports OAuth 1.0a.
-                var oauth_verifier = req.query.oauth_verifier || null;
-                return cb(null, oauth_verifier);
-            };
-            strategy._requestTokenStore.destroy = function (req, token, cb) {
-                // simply invoke the callback directly
-                cb();
-            };
-        }
-
-        // a lightweight response object to be used in the serverless context
+        // create a lightweight response object to be used in the serverless context
         var response = {
             headers: {},
             setHeader: function setHeader(name, val) {
@@ -7829,5 +7952,5 @@ function main(params) {
 
 exports.default = main;
 
-},{"passport":45,"passport-facebook":9,"passport-github":13,"passport-google-oauth20":18,"passport-twitter":38}]},{},[]);
+},{"./strategy/builder":57,"passport":45}]},{},[]);
 var main = require('main-action').default;
