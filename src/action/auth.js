@@ -14,7 +14,11 @@ function _authenticate(params) {
                 response.body = {
                     "token": accessToken,
                     "refreshToken": refreshToken,
-                    "profile": profile
+                    "profile": profile,
+                    "context": {
+                      "provider": (params.auth_provider_name || params.auth_provider),
+                      "user_id": profile.id
+                    }
                 };
 
                 resolve(get_action_response(response));

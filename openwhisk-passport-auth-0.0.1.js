@@ -7866,13 +7866,17 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 function _authenticate(params) {
     return new Promise(function (resolve, reject) {
 
-        //build a strategy for Passport based on params
+        //build a strategy for Passport based on input params
         var builder = new _builder2.default().withProvider(params.auth_provider).withCredentials(params.client_id, params.client_secret).withCallbackURL(params.callback_url).withVerifyer(function (accessToken, refreshToken, profile, done) {
             console.log("Logged in successfully ... ");
             response.body = {
                 "token": accessToken,
                 "refreshToken": refreshToken,
-                "profile": profile
+                "profile": profile,
+                "context": {
+                    "provider": params.auth_provider_name || params.auth_provider,
+                    "user_id": profile.id
+                }
             };
 
             resolve(get_action_response(response));
