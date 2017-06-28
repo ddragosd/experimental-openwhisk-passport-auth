@@ -2,8 +2,8 @@
 An Openwhisk action that uses [PassportJS](http://passportjs.org/) for User Authentication Proxy.
 
 The scope of this action is to authenticate users, returning an Access Token, a Refresh Token, and the Profile of the user.
-The output of this action should be cached, encrypted with Openwhisk's namespace credentials or other means; 
-actions belonging to the same package should be able to access this cache, retrieve a valid token, in order to be able to execute actions on behalf of the users.  
+The output of this action should be cached, encrypted with Openwhisk's namespace credentials or other means;
+actions belonging to the same package should be able to access this cache, retrieve a valid token, in order to be able to execute actions on behalf of the users.
 
 <img src="./docs/auth-demo.gif" alt="Demo" width="500px"/>
 
@@ -27,7 +27,7 @@ actions belonging to the same package should be able to access this cache, retri
     Configure the default action parameters:
     * `auth_provider` - the name of the authentication provider ( i.e. `facebook`, `github`, etc ).
       The action will try importing `passport-<provider>` lib. You can also add your own authentication provider.
-    * `auth_provider_name` - optional; defaults to `auth_provider`; it defines an alternate name for the authorization to be used with Passport.  
+    * `auth_provider_name` - optional; defaults to `auth_provider`; it defines an alternate name for the authorization to be used with Passport.
     * `client_id` - consumer key
     * `client_secret` - consumer secret
     * `scopes` - optional; it defines the list of scopes
@@ -47,22 +47,22 @@ $ wsk package create oauth
 #### GitHub
 
 Visit https://github.com/settings/developers to create a new application, or to retrieve the `Client ID` and `Client Secret` for an existing application.
- 
- > NOTE: When configuring the application in GitHub make sure the `Authorization callback URL` 
+
+ > NOTE: When configuring the application in GitHub make sure the `Authorization callback URL`
  is set to `https://localhost/api/v1/web/guest/oauth/github.json`
 
 Create a new action called `github` inside the `oauth` package.
 
 ```bash
 $ wsk action create oauth/github ./openwhisk-passport-auth-0.0.1.js --web true \
-        --param auth_provider github \ 
-        --param client_id --client-id-- \ 
-        --param client_secret --client-secret-- \ 
+        --param auth_provider github \
+        --param client_id --client-id-- \
+        --param client_secret --client-secret-- \
         --param callback_url https://localhost/api/v1/web/guest/oauth/github.json -i
 ```
 
 Then browse to https://localhost/api/v1/web/guest/oauth/github in order to test the action.
-  
+
 
 #### Facebook
 Visit https://developers.facebook.com to create a new application, or to retrieve the `App ID` and the `App secret` for an existing app.
@@ -71,9 +71,9 @@ Create a new action called `fb` inside the `oauth` package.
 
 ```bash
 $ wsk action create oauth/fb ./openwhisk-passport-auth-0.0.1.js --web true \
-        --param auth_provider facebook \ 
-        --param client_id --app-id-- \ 
-        --param client_secret --app-secret-- \ 
+        --param auth_provider facebook \
+        --param client_id --app-id-- \
+        --param client_secret --app-secret-- \
         --param callback_url https://localhost/api/v1/web/guest/oauth/fb.json -i
 ```
 
@@ -85,10 +85,10 @@ Visit https://apps.twitter.com/ to create an application, or to retrieve the `Co
 Create a new action called `twitter` inside the `oauth` package.
 
 ```bash
-$ wsk action create oauth/twitter ./openwhisk-passport-auth-0.0.1.js --web true \ 
-        --param auth_provider twitter \ 
-        --param client_id --consumer-key-- \ 
-        --param client_secret --consumer-secret-- \ 
+$ wsk action create oauth/twitter ./openwhisk-passport-auth-0.0.1.js --web true \
+        --param auth_provider twitter \
+        --param client_id --consumer-key-- \
+        --param client_secret --consumer-secret-- \
         --param callback_url https://localhost/api/v1/web/guest/oauth/twitter.json -i
 ```
 
@@ -103,10 +103,10 @@ Visit https://console.developers.google.com to create a project, or to retrieve 
 Create a new action called `google` inside the `oauth` package.
 
 ```bash
-$ wsk action create oauth/google ./openwhisk-passport-auth-0.0.1.js --web true \ 
-        --param auth_provider google-oauth20 --param auth_provider_name google \ 
-        --param client_id --client-id-- \ 
-        --param client_secret --client-secret-- \ 
+$ wsk action create oauth/google ./openwhisk-passport-auth-0.0.1.js --web true \
+        --param auth_provider google-oauth20 --param auth_provider_name google \
+        --param client_id --client-id-- \
+        --param client_secret --client-secret-- \
         --param scopes https://www.googleapis.com/auth/plus.login \
         --param callback_url https://localhost/api/v1/web/guest/oauth/google.json -i
 ```
@@ -149,4 +149,41 @@ wsk -i package bind oauth/user my-oauth-provider \
 --param client_secret <client_secret> \
 --param scopes <comma_sepparated_scopes> \
 --param callback_url https://<openwhisk_hostname>/api/v1/web/<openwhisk_namespace>/oauth/fb.json
+```
+
+## Linking multiple social IDs together
+
+This action can also be invoked in a sequence with other authentication actions,
+so that a user can authenticate with multiple providers and at the end to link those identities together.
+This action is not concerned with persisting user information,
+but since it receives the HTTP Request first, it does something to help: it creates a `context` object.
+
+The purpose of the `context` object is to persist a list with the linked identities during the login process:
+For example:
+
+```json
+{"identities":[
+  {"provider":"facebook","user_id":"1234"},
+  {"provider": "twitter", "user_id": "999"}
+]}
+```
+
+This information is assumed to be stored in a cookie named `__Secure-auth_context`. This cookie can be easily set by an action ending the login sequece:
+
+```javascript
+/**
+ * A simple web action returning an HTTP Redirect based on params.redirect_url.
+ * It sets the __Secure-auth_context and then it returns the redirect response.
+ */
+function redirect(params) {
+  return {
+    headers: {
+      'Location': params.redirect_url,
+      'Set-Cookie': '__Secure-auth_context=' + JSON.stringify(params.context) + '; Secure; HttpOnly; Max-Age=600; Path=/api/v1/web/' + process.env['__OW_NAMESPACE'],
+      'Content - Length': '0'
+    },
+    statusCode: 302,
+    body: ""
+  }
+}
 ```
