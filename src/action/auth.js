@@ -11,14 +11,21 @@ function _authenticate(params) {
             .withCallbackURL(params.callback_url)
             .withVerifyer(function (accessToken, refreshToken, profile, done) {
                 console.log("Logged in successfully ... ");
+                // when linking multiple social IDs together
+                //  context.identities array holds each identity.
+                //   this action is returning the list, in order,
+                //   so that another action can link accounts at the end
+                let ctx = params.context || {};
+                ctx.identities = ctx.identities || [];
+                ctx.identities.push({
+                  "provider": (params.auth_provider_name || params.auth_provider),
+                  "user_id": profile.id
+                });
                 response.body = {
                     "token": accessToken,
                     "refreshToken": refreshToken,
                     "profile": profile,
-                    "context": {
-                      "provider": (params.auth_provider_name || params.auth_provider),
-                      "user_id": profile.id
-                    }
+                    "context": ctx
                 };
 
                 resolve(get_action_response(response));
