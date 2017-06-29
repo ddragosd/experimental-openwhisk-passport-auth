@@ -12,8 +12,8 @@ function _authenticate(params) {
             .withCallbackURL(params.callback_url)
             .withVerifyer(function (accessToken, refreshToken, profile, done) {
                 console.log("Logged in successfully ... ");
-                let ctx = _getContext(params, profile);
-
+                let ctx = _updateContext(params, profile);
+                ctx.success_redirect = ctx.success_redirect || params.redirect_url;
                 response.body = {
                     "token": accessToken,
                     "refreshToken": refreshToken,
@@ -63,7 +63,9 @@ function _authenticate(params) {
               let cookie_header = resp.headers['Set-Cookie'];
               if ((cookie_header === null || typeof(cookie_header) === "undefined") &&
                  (params.success_redirect !== null && typeof(params.success_redirect) !== "undefined")) {
-                resp.headers["Set-Cookie"] = '__Secure-auth_context=' + JSON.stringify({"success_redirect": params.success_redirect}) + '; Secure; HttpOnly; Max-Age=600; Path=/api/v1/web/' + process.env['__OW_NAMESPACE']
+                let ctx = _getContext(params);
+                ctx.success_redirect = params.success_redirect;
+                resp.headers["Set-Cookie"] = '__Secure-auth_context=' + JSON.stringify(ctx) + '; Secure; HttpOnly; Max-Age=600; Path=/api/v1/web/' + process.env['__OW_NAMESPACE']
               }
             }
 
@@ -99,6 +101,14 @@ function _authenticate(params) {
     });
 }
 
+function _getContext(params) {
+  const CONTEXT_COOKIE_NAME = "__Secure-auth_context";
+  //console.log("Cookies:" + params.__ow_headers['cookie']);
+  let cookies = cookie.parse(params.__ow_headers['cookie'] || '');
+  //console.log("Cookies parsed:" + JSON.stringify(cookies));
+  return cookies[CONTEXT_COOKIE_NAME] ? JSON.parse(cookies[CONTEXT_COOKIE_NAME]) : {};
+}
+
 /**
 * Returns a context object for this action.
 * If this action is used to link multiple social IDs together
@@ -112,21 +122,15 @@ function _authenticate(params) {
 * @param params Action input parameters
 * @param profile User Profile
 */
-function _getContext(params, profile) {
-  const CONTEXT_COOKIE_NAME = "__Secure-auth_context";
-  let ctx = params.context || {};
-  //console.log("Cookies:" + params.__ow_headers['cookie']);
-  let cookies = cookie.parse(params.__ow_headers['cookie'] || '');
-  //console.log("Cookies parsed:" + JSON.stringify(cookies));
-  let cookies_context = cookies[CONTEXT_COOKIE_NAME] ? JSON.parse(cookies[CONTEXT_COOKIE_NAME]) : {};
-  ctx = cookies_context;
-  ctx.identities = cookies_context.identities || ctx.identities || [];
+function _updateContext(params, profile) {
+  let ctx = _getContext(params);
   //console.log("ctx.identities=" + JSON.stringify(ctx.identities));
   // NOTE: there's no check for duplicated providers, ne design.
   //       2 accounts from the same provider can be linked together as well.
   // avoid duplicated identities
   let identity_exists = false;
   let provider = (params.auth_provider_name || params.auth_provider)
+  ctx.identities = ctx.identities || [];
   for (var i=0; i<ctx.identities.length; i++ ){
     let ident = ctx.identities[i];
     if (ident !== null && typeof(ident) !== "undefined" &&
