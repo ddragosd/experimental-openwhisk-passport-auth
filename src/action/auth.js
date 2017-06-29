@@ -12,7 +12,7 @@ function _authenticate(params) {
             .withCallbackURL(params.callback_url)
             .withVerifyer(function (accessToken, refreshToken, profile, done) {
                 console.log("Logged in successfully ... ");
-                let ctx = _getContext(params, profile)
+                let ctx = _getContext(params, profile);
 
                 response.body = {
                     "token": accessToken,
@@ -57,6 +57,16 @@ function _authenticate(params) {
                 console.error(resp.body);
                 resp.body = resp.body.toString();
             }
+            // save the success_redirect in a cookie to
+            //   set it in the context once the user logs in
+            if (resp.statusCode == 302) {
+              let cookie_header = resp.headers['Set-Cookie'];
+              if ((cookie_header === null || typeof(cookie_header) === "undefined") &&
+                 (params.success_redirect !== null && typeof(params.success_redirect) !== "undefined")) {
+                resp.headers["Set-Cookie"] = '__Secure-auth_context=' + JSON.stringify({"success_redirect": params.success_redirect}) + '; Secure; HttpOnly; Max-Age=600; Path=/api/v1/web/' + process.env['__OW_NAMESPACE']
+              }
+            }
+
             return {
                 headers: resp.headers,
                 statusCode: resp.statusCode,
@@ -103,12 +113,13 @@ function _authenticate(params) {
 * @param profile User Profile
 */
 function _getContext(params, profile) {
-  const COOKIE_NAME = "__Secure-auth_context";
+  const CONTEXT_COOKIE_NAME = "__Secure-auth_context";
   let ctx = params.context || {};
   //console.log("Cookies:" + params.__ow_headers['cookie']);
   let cookies = cookie.parse(params.__ow_headers['cookie'] || '');
   //console.log("Cookies parsed:" + JSON.stringify(cookies));
-  let cookies_context = cookies[COOKIE_NAME] ? JSON.parse(cookies[COOKIE_NAME]) : [];
+  let cookies_context = cookies[CONTEXT_COOKIE_NAME] ? JSON.parse(cookies[CONTEXT_COOKIE_NAME]) : {};
+  ctx = cookies_context;
   ctx.identities = cookies_context.identities || ctx.identities || [];
   //console.log("ctx.identities=" + JSON.stringify(ctx.identities));
   // NOTE: there's no check for duplicated providers, ne design.

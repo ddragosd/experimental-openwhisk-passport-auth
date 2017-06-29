@@ -30,8 +30,9 @@ actions belonging to the same package should be able to access this cache, retri
     * `auth_provider_name` - optional; defaults to `auth_provider`; it defines an alternate name for the authorization to be used with Passport.
     * `client_id` - consumer key
     * `client_secret` - consumer secret
-    * `scopes` - optional; it defines the list of scopes
+    * `scopes` - optional; the list of scopes to request
     * `callback_url` - this parameter should point to this action
+    * `success_redirect` - a URL to redirect after a successful login. This value is cached in a cookie  named `__Secure-auth_context` in order to be retrieved when the authentication provider invokes the `callback_url`.
 
 3. To test the action browse to `https://<openwhisk_hostname>/api/v1/web/<openwhisk_namespace>/oauth/<action_name>`
 
@@ -168,22 +169,4 @@ For example:
 ]}
 ```
 
-This information is assumed to be stored in a cookie named `__Secure-auth_context`. This cookie can be easily set by an action ending the login sequece:
-
-```javascript
-/**
- * A simple web action returning an HTTP Redirect based on params.redirect_url.
- * It sets the __Secure-auth_context and then it returns the redirect response.
- */
-function redirect(params) {
-  return {
-    headers: {
-      'Location': params.redirect_url,
-      'Set-Cookie': '__Secure-auth_context=' + JSON.stringify(params.context) + '; Secure; HttpOnly; Max-Age=600; Path=/api/v1/web/' + process.env['__OW_NAMESPACE'],
-      'Content - Length': '0'
-    },
-    statusCode: 302,
-    body: ""
-  }
-}
-```
+This information is assumed to be stored in a cookie named `__Secure-auth_context`. This cookie can be easily set by an action that is invoked as the last step for the login sequence. See [src/action/redirect.js](src/action/redirect.js) action for an example.
