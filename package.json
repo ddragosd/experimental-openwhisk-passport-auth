@@ -14,9 +14,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://git.corp.adobe.com/bladerunner/experimental-openwhisk-passport-auth.git"
+    "url": "https://github.com/ddragosd/experimental-openwhisk-passport-auth"
   },
-  "author": "Dragos Dascalita Haut <ddascal@adobe.com>",
+  "author": "Dragos Dascalita Haut <ddragosd@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
     "cookie": "^0.3.1",
@@ -68,9 +68,9 @@
     ]
   },
   "bugs": {
-    "url": "https:///git.corp.adobe.com/bladerunner/experimental-openwhisk-passport-auth/issues"
+    "url": "https://github.com/ddragosd/experimental-openwhisk-passport-auth/issues"
   },
-  "homepage": "https:///git.corp.adobe.com/bladerunner/experimental-openwhisk-passport-auth",
+  "homepage": "https://github.com/ddragosd/experimental-openwhisk-passport-auth",
   "keywords": [
     "serverless, openwhisk, authentication, passportjs"
   ]
